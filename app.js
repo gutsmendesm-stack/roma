@@ -176,11 +176,13 @@ function parseRomaneios(pagesText) {
 
             const veiculoMatch = pageText.match(/Ve[ií]culo:\s*([^\s]+(?:\s+[^\s]+)?(?:\s+[^\s]+)?)/i);
             let veiculo = veiculoMatch ? veiculoMatch[1].trim() : '';
-            // Clean up: remove Doca: suffix and any JSON garbage
+            // Clean up: remove Doca: suffix and any garbage after vehicle name
             veiculo = veiculo.replace(/Doca:.*/, '').trim();
-            veiculo = veiculo.replace(/\{.*$/, '').trim();
-            // Also remove trailing non-alphanumeric (like quotes from JSON)
-            veiculo = veiculo.replace(/[^a-zA-Z0-9\s]$/, '').trim();
+            // Remove anything that's not a valid vehicle character (letters, numbers, spaces)
+            // Valid vehicle names: PAG 00241 G3, DNA 5779 C 5, FOS, PKC 000028 G3
+            veiculo = veiculo.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+            // Remove extra whitespace
+            veiculo = veiculo.replace(/\s+/g, ' ').trim();
 
             const lacreMatch = pageText.match(/Lacre:\s*([^\n]+?)(?:\s+Destino|\s+$)/i);
             const lacre = lacreMatch ? lacreMatch[1].trim() : '';
