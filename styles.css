@@ -401,17 +401,13 @@ header h1 {
     }
 
     body.print-all-qr .canalizacao-section:first-of-type { page-break-before: auto; }
-    body.print-all-qr .section-divider { page-break-before: always; }
+    body.print-all-qr .section-divider { display: none !important; }
 
     /* Print single canalizacao */
     body.print-single-canal .canalizacao-section { display: none !important; }
     body.print-single-canal .canalizacao-section.print-visible { display: block !important; }
     body.print-single-canal .section-divider { display: none !important; }
     body.print-single-canal #step2 { display: block !important; }
-    body.print-single-canal .config-carretas,
-    body.print-single-canal .summary-cards,
-    body.print-single-canal .step-actions,
-    body.print-single-canal .print-all-actions { display: none !important; }
 
     /* Print carreta expedida */
     body.print-single-carreta #step4 { display: block !important; }
