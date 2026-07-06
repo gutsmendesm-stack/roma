@@ -2,17 +2,14 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ============================================================
-// COLOR CONFIGURATION
+// COLOR CONFIGURATION - All dynamic, auto-assigned
 // ============================================================
-const CANALIZACAO_COLORS = {
-    'SAL': { main: '#1a56db', light: '#eff6ff', border: '#93c5fd', name: 'SAL' },
-    'SSE': { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', name: 'SSE' },
-    'JPA': { main: '#7c3aed', light: '#f5f3ff', border: '#c4b5fd', name: 'JPA' },
-    'SNR': { main: '#059669', light: '#ecfdf5', border: '#6ee7b7', name: 'SNR' },
-    'PRN': { main: '#d97706', light: '#fffbeb', border: '#fcd34d', name: 'PRN' },
-};
-
-const EXTRA_COLORS = [
+const COLOR_PALETTE = [
+    { main: '#1a56db', light: '#eff6ff', border: '#93c5fd' },
+    { main: '#dc2626', light: '#fef2f2', border: '#fca5a5' },
+    { main: '#7c3aed', light: '#f5f3ff', border: '#c4b5fd' },
+    { main: '#059669', light: '#ecfdf5', border: '#6ee7b7' },
+    { main: '#d97706', light: '#fffbeb', border: '#fcd34d' },
     { main: '#0891b2', light: '#ecfeff', border: '#67e8f9' },
     { main: '#be185d', light: '#fdf2f8', border: '#f9a8d4' },
     { main: '#4338ca', light: '#eef2ff', border: '#a5b4fc' },
@@ -20,17 +17,19 @@ const EXTRA_COLORS = [
     { main: '#065f46', light: '#d1fae5', border: '#34d399' },
 ];
 
-let extraColorIndex = 0;
+let canalizacaoColors = {};
+let colorIndex = 0;
 
 function getCanalizacaoColor(key) {
-    if (CANALIZACAO_COLORS[key]) return CANALIZACAO_COLORS[key];
-    const color = EXTRA_COLORS[extraColorIndex % EXTRA_COLORS.length];
-    CANALIZACAO_COLORS[key] = { ...color, name: key };
-    extraColorIndex++;
-    return CANALIZACAO_COLORS[key];
+    if (canalizacaoColors[key]) return canalizacaoColors[key];
+    const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
+    canalizacaoColors[key] = { ...color, name: key };
+    colorIndex++;
+    return canalizacaoColors[key];
 }
 
 function getVeiculoIcon(veiculo) {
+    if (!veiculo) return '📦';
     const v = veiculo.toUpperCase();
     return (v.startsWith('PAG') || v.startsWith('PKC')) ? '✈️' : '📥';
 }
@@ -40,7 +39,7 @@ function getVeiculoIcon(veiculo) {
 // ============================================================
 let parsedData = {};
 let equipamentos = [];
-let carretas = {};
+let carretas = {};          // { canalizacaoKey: [{ placa, hus: [], expedida, fechada, ordemEquipamentos }] }
 let carregamentoState = {
     canalizacaoAtual: null,
     carretaAtualIdx: 0,
@@ -64,19 +63,20 @@ const step3 = document.getElementById('step3');
 const step4 = document.getElementById('step4');
 
 const summaryCards = document.getElementById('summaryCards');
-const carretasConfig = document.getElementById('carretasConfig');
 const btnIniciarCarregamento = document.getElementById('btnIniciarCarregamento');
+const btnIniciarCarregamento2 = document.getElementById('btnIniciarCarregamento2');
 const btnVoltarUpload = document.getElementById('btnVoltarUpload');
 
 const carregamentoTitle = document.getElementById('carregamentoTitle');
 const carretaAtualInfo = document.getElementById('carretaAtualInfo');
+const carretaPlacaInput = document.getElementById('carretaPlacaInput');
 const equipamentosLista = document.getElementById('equipamentosLista');
 const carretaPanelTitle = document.getElementById('carretaPanelTitle');
-const carretaStatus = document.getElementById('carretaStatus');
 const carretaConteudo = document.getElementById('carretaConteudo');
 const btnFecharCarreta = document.getElementById('btnFecharCarreta');
 const btnExpedirCarreta = document.getElementById('btnExpedirCarreta');
-const btnVoltarConfig = document.getElementById('btnVoltarConfig');
+const btnVoltarQR = document.getElementById('btnVoltarQR');
+const btnVerExpedidas = document.getElementById('btnVerExpedidas');
 
 const carretasExpedidas = document.getElementById('carretasExpedidas');
 const btnVoltarCarregamento = document.getElementById('btnVoltarCarregamento');
@@ -99,15 +99,17 @@ uploadArea.addEventListener('drop', (e) => {
 });
 
 btnIniciarCarregamento.addEventListener('click', iniciarCarregamento);
+btnIniciarCarregamento2.addEventListener('click', iniciarCarregamento);
 btnVoltarUpload.addEventListener('click', () => showStep(1));
 btnFecharCarreta.addEventListener('click', fecharCarretaAtual);
 btnExpedirCarreta.addEventListener('click', expedirCarretaAtual);
-btnVoltarConfig.addEventListener('click', () => showStep(2));
+btnVoltarQR.addEventListener('click', () => showStep(2));
+btnVerExpedidas.addEventListener('click', () => { renderExpedidas(); showStep(4); });
 btnVoltarCarregamento.addEventListener('click', () => { showStep(3); renderCarregamento(); });
 btnNovaOperacao.addEventListener('click', resetAll);
 
 // ============================================================
-// Navigation
+// Navigation - preserves state between steps
 // ============================================================
 function showStep(n) {
     step1.style.display = n === 1 ? 'block' : 'none';
@@ -215,12 +217,13 @@ function buildEquipamentos(data) {
 
 
 // ============================================================
-// STEP 2: Summary + Carreta Config + QR Codes (all HUs)
+// STEP 2: Summary + All QR Codes
 // ============================================================
 function showStep2() {
     showStep(2);
     const keys = Object.keys(parsedData).sort();
 
+    // Summary cards
     let totalHUs = 0, totalPacotes = 0;
     const stats = {};
     for (const key of keys) {
@@ -241,69 +244,47 @@ function showStep2() {
         summaryCards.appendChild(createCard(stats[key].pacotes.toLocaleString('pt-BR'), `Pacotes ${key}`, color.main));
     }
 
-    // Carreta config
-    carretasConfig.innerHTML = '';
-    const sortedKeys = keys.sort((a, b) => {
-        if (a === 'SAL') return -1;
-        if (b === 'SAL') return 1;
-        if (a === 'SSE') return -1;
-        if (b === 'SSE') return 1;
-        return a.localeCompare(b);
-    });
-
-    for (const key of sortedKeys) {
-        const color = getCanalizacaoColor(key);
-        const section = document.createElement('div');
-        section.className = 'config-canalizacao';
-        section.style.borderLeftColor = color.main;
-
-        const totalPcts = stats[key].pacotes.toLocaleString('pt-BR');
-        section.innerHTML = `
-            <div class="config-canalizacao-header">
-                <h4 style="color: ${color.main}">${key} — ${totalPcts} pacotes</h4>
-                <button class="btn-add-carreta" data-canal="${key}">+ Carreta</button>
-            </div>
-            <div class="carretas-list" id="carretas-${key}">
-                <div class="carreta-input-row">
-                    <span class="carreta-label">${key} - Carreta 1:</span>
-                    <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="0">
-                </div>
-                <div class="carreta-input-row">
-                    <span class="carreta-label">${key} - Carreta 2:</span>
-                    <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="1">
-                </div>
-            </div>
-        `;
-        carretasConfig.appendChild(section);
-
-        section.querySelector('.btn-add-carreta').addEventListener('click', () => {
-            const list = document.getElementById(`carretas-${key}`);
-            const count = list.querySelectorAll('.carreta-input-row').length;
-            const row = document.createElement('div');
-            row.className = 'carreta-input-row';
-            row.innerHTML = `
-                <span class="carreta-label">${key} - Carreta ${count + 1} (extra):</span>
-                <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="${count}">
-                <button class="btn-remove-carreta" onclick="this.parentElement.remove()">&#10005;</button>
-            `;
-            list.appendChild(row);
-        });
-    }
-
-    // Render ALL QR codes section (for first biping before expedition)
-    renderAllQRCodes(sortedKeys);
+    // Render ALL QR codes section
+    renderAllQRCodes(keys);
 }
 
 function renderAllQRCodes(keys) {
     const container = document.getElementById('allQrCodesContainer');
     container.innerHTML = '';
 
+    // Print buttons
+    const printActions = document.createElement('div');
+    printActions.className = 'print-all-actions';
+    for (const key of keys) {
+        const color = getCanalizacaoColor(key);
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.style.background = color.main;
+        btn.style.color = 'white';
+        btn.textContent = `Imprimir ${key}`;
+        btn.addEventListener('click', () => printCanalizacao(key));
+        printActions.appendChild(btn);
+    }
+    if (keys.length > 1) {
+        const btnAll = document.createElement('button');
+        btnAll.className = 'btn';
+        btnAll.style.background = '#2c3e50';
+        btnAll.style.color = 'white';
+        btnAll.textContent = 'Imprimir Tudo';
+        btnAll.addEventListener('click', () => {
+            document.body.classList.add('print-all-qr');
+            window.print();
+            setTimeout(() => document.body.classList.remove('print-all-qr'), 500);
+        });
+        printActions.appendChild(btnAll);
+    }
+    container.appendChild(printActions);
+
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
         const color = getCanalizacaoColor(key);
         const items = parsedData[key];
 
-        // Divider between sections
         if (i > 0) {
             const divider = document.createElement('div');
             divider.className = 'section-divider';
@@ -313,6 +294,7 @@ function renderAllQRCodes(keys) {
 
         const section = document.createElement('section');
         section.className = 'canalizacao-section';
+        section.dataset.canal = key;
         section.style.borderColor = color.main;
         section.style.background = color.light;
 
@@ -333,48 +315,15 @@ function renderAllQRCodes(keys) {
         section.appendChild(grid);
         container.appendChild(section);
     }
-
-    // Print all button
-    const printAllBtn = document.createElement('div');
-    printAllBtn.className = 'print-all-actions';
-    printAllBtn.innerHTML = '';
-    for (const key of keys) {
-        const color = getCanalizacaoColor(key);
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.style.background = color.main;
-        btn.style.color = 'white';
-        btn.textContent = `Imprimir ${key}`;
-        btn.addEventListener('click', () => printCanalizacao(key));
-        printAllBtn.appendChild(btn);
-    }
-    if (keys.length > 1) {
-        const btnAll = document.createElement('button');
-        btnAll.className = 'btn';
-        btnAll.style.background = '#2c3e50';
-        btnAll.style.color = 'white';
-        btnAll.textContent = 'Imprimir Tudo';
-        btnAll.addEventListener('click', () => {
-            document.body.classList.remove('print-single-canal');
-            document.body.classList.add('print-all-qr');
-            window.print();
-            setTimeout(() => document.body.classList.remove('print-all-qr'), 500);
-        });
-        printAllBtn.appendChild(btnAll);
-    }
-    container.insertBefore(printAllBtn, container.firstChild);
 }
 
 function printCanalizacao(key) {
     document.body.classList.add('print-single-canal');
+    document.body.dataset.printCanal = key;
     const sections = document.querySelectorAll('.canalizacao-section');
     sections.forEach(s => {
-        const h2 = s.querySelector('h2');
-        if (h2 && h2.textContent.includes(key)) {
-            s.classList.add('print-visible');
-        } else {
-            s.classList.remove('print-visible');
-        }
+        if (s.dataset.canal === key) s.classList.add('print-visible');
+        else s.classList.remove('print-visible');
     });
     window.print();
     setTimeout(() => {
@@ -396,36 +345,30 @@ function createCard(value, label, color) {
 
 
 // ============================================================
-// STEP 3: Carregamento
+// STEP 3: Carregamento - Dynamic carretas
 // ============================================================
 function iniciarCarregamento() {
-    const keys = Object.keys(parsedData).sort((a, b) => {
-        if (a === 'SAL') return -1;
-        if (b === 'SAL') return 1;
-        if (a === 'SSE') return -1;
-        if (b === 'SSE') return 1;
-        return a.localeCompare(b);
-    });
+    // Initialize carretas if not already done (preserves state on back/forward)
+    const keys = Object.keys(parsedData).sort();
 
-    carretas = {};
+    if (carregamentoState.canalizacoesOrdem.length === 0) {
+        carregamentoState.canalizacoesOrdem = keys;
+        carregamentoState.canalizacaoAtual = keys[0];
+        carregamentoState.carretaAtualIdx = 0;
+    }
+
+    // Initialize carretas for each canalization if not yet created
     for (const key of keys) {
-        const inputs = document.querySelectorAll(`.input-placa[data-canal="${key}"]`);
-        carretas[key] = [];
-        inputs.forEach((input, idx) => {
-            carretas[key].push({
-                placa: input.value.trim() || `${key} Carreta ${idx + 1}`,
+        if (!carretas[key]) {
+            carretas[key] = [{
+                placa: '',
                 hus: [],
                 expedida: false,
                 fechada: false,
                 ordemEquipamentos: []
-            });
-        });
+            }];
+        }
     }
-
-    carregamentoState.canalizacoesOrdem = keys;
-    carregamentoState.canalizacaoAtual = keys[0];
-    carregamentoState.carretaAtualIdx = 0;
-    carregamentoState.ordemChegada = [];
 
     showStep(3);
     renderCarregamento();
@@ -441,16 +384,32 @@ function renderCarregamento() {
     carregamentoTitle.style.color = color.main;
 
     const totalAlocado = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
+    const carretaNum = carretaIdx + 1;
     carretaAtualInfo.innerHTML = `
-        <span class="badge" style="background:${color.main}">${carreta.placa}</span>
+        <span class="badge" style="background:${color.main}">${canal} - Carreta ${carretaNum}</span>
         <span class="pacotes-counter">${totalAlocado.toLocaleString('pt-BR')} pacotes alocados</span>
     `;
 
-    carretaPanelTitle.textContent = `${carreta.placa} (${canal} - Carreta ${carretaIdx + 1})`;
+    // Placa input
+    carretaPlacaInput.innerHTML = `
+        <label>Placa da carreta:</label>
+        <input type="text" class="input-placa" id="inputPlacaAtual" value="${carreta.placa}" placeholder="Digite a placa...">
+    `;
+    const placaInput = document.getElementById('inputPlacaAtual');
+    placaInput.addEventListener('input', (e) => {
+        carreta.placa = e.target.value.trim();
+        carretaPanelTitle.textContent = carreta.placa || `${canal} - Carreta ${carretaNum}`;
+    });
+
+    carretaPanelTitle.textContent = carreta.placa || `${canal} - Carreta ${carretaNum}`;
 
     renderEquipamentosLista(canal);
     renderCarretaConteudo(canal, carretaIdx);
     updateCarregamentoButtons();
+
+    // Show "ver expedidas" button if any carreta was expedida
+    const hasExpedidas = Object.values(carretas).some(arr => arr.some(c => c.expedida));
+    btnVerExpedidas.style.display = hasExpedidas ? 'inline-block' : 'none';
 }
 
 function renderEquipamentosLista(canal) {
@@ -463,6 +422,23 @@ function renderEquipamentosLista(canal) {
 
     if (aguardando.length === 0) {
         equipamentosLista.innerHTML = '<p class="all-done">✅ Todos os equipamentos desta canalização já foram alocados!</p>';
+
+        // Check if there's a next canalization
+        const keys = carregamentoState.canalizacoesOrdem;
+        const currentIdx = keys.indexOf(canal);
+        if (currentIdx < keys.length - 1) {
+            const nextCanal = keys[currentIdx + 1];
+            const btnNext = document.createElement('button');
+            btnNext.className = 'btn btn-primary';
+            btnNext.style.marginTop = '15px';
+            btnNext.textContent = `→ Ir para ${nextCanal}`;
+            btnNext.addEventListener('click', () => {
+                carregamentoState.canalizacaoAtual = nextCanal;
+                carregamentoState.carretaAtualIdx = 0;
+                renderCarregamento();
+            });
+            equipamentosLista.appendChild(btnNext);
+        }
         return;
     }
 
@@ -476,7 +452,7 @@ function renderEquipamentosLista(canal) {
         item.innerHTML = `
             <div class="eq-info">
                 <span class="eq-icon">${icon}</span>
-                <span class="eq-veiculo">${eq.veiculo}</span>
+                <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${husCanal.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
             </div>
             <button class="btn-chegou">Chegou</button>
@@ -529,7 +505,6 @@ function renderCarretaConteudo(canal, carretaIdx) {
         return;
     }
 
-    // Group by equipment
     const byEquip = {};
     for (const hu of carreta.hus) {
         const v = hu.veiculo || 'SEM_VEICULO';
@@ -548,9 +523,9 @@ function renderCarretaConteudo(canal, carretaIdx) {
         group.className = 'carreta-equip-group';
         group.innerHTML = `
             <div class="equip-group-header">
-                <span>${ordem}º ${icon} ${v}</span>
+                <span>${ordem}º ${icon} ${v || 'Sem veículo'}</span>
                 <span>${hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
-                <button class="btn-remover-equip" title="Remover este equipamento da carreta">&#10005;</button>
+                <button class="btn-remover-equip" title="Remover">&#10005;</button>
             </div>
         `;
         group.querySelector('.btn-remover-equip').addEventListener('click', () => {
@@ -560,7 +535,6 @@ function renderCarretaConteudo(canal, carretaIdx) {
         ordem++;
     }
 
-    // Total
     const totalAll = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
     const totalDiv = document.createElement('div');
     totalDiv.className = 'carreta-total';
@@ -570,18 +544,14 @@ function renderCarretaConteudo(canal, carretaIdx) {
 
 function removerEquipamentoDaCarreta(veiculo, canal, carretaIdx) {
     const carreta = carretas[canal][carretaIdx];
-
-    // Remove all HUs from this equipment
     carreta.hus = carreta.hus.filter(h => h.veiculo !== veiculo);
-
-    // Remove from order
     carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => v !== veiculo);
 
-    // Remove from ordemChegada so it goes back to "aguardando"
-    const stillInOtherCarretas = carretas[canal].some((c, idx) => 
+    // Remove from ordemChegada so it appears back in aguardando
+    const stillInOther = carretas[canal].some((c, idx) =>
         idx !== carretaIdx && c.hus.some(h => h.veiculo === veiculo)
     );
-    if (!stillInOtherCarretas) {
+    if (!stillInOther) {
         carregamentoState.ordemChegada = carregamentoState.ordemChegada.filter(v => v !== veiculo);
     }
 
@@ -592,38 +562,28 @@ function updateCarregamentoButtons() {
     const canal = carregamentoState.canalizacaoAtual;
     const carretaIdx = carregamentoState.carretaAtualIdx;
     const carreta = carretas[canal][carretaIdx];
-    const totalCarretas = carretas[canal].length;
 
-    const hasMore = carretaIdx < totalCarretas - 1;
-    btnFecharCarreta.style.display = (hasMore && carreta.hus.length > 0) ? 'inline-block' : 'none';
+    btnFecharCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
     btnExpedirCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
-
-    if (!hasMore && carreta.hus.length > 0) {
-        btnFecharCarreta.style.display = 'inline-block';
-        btnFecharCarreta.textContent = '➕ Adicionar Carreta Extra e Fechar Atual';
-    } else {
-        btnFecharCarreta.textContent = '🔒 Fechar Carreta e Abrir Próxima';
-    }
+    btnFecharCarreta.textContent = '🔒 Fechar Carreta e Abrir Nova';
 }
 
 function fecharCarretaAtual() {
     const canal = carregamentoState.canalizacaoAtual;
     const carretaIdx = carregamentoState.carretaAtualIdx;
-    const totalCarretas = carretas[canal].length;
 
     carretas[canal][carretaIdx].fechada = true;
 
-    if (carretaIdx >= totalCarretas - 1) {
-        carretas[canal].push({
-            placa: `${canal} Extra ${totalCarretas - 1}`,
-            hus: [],
-            expedida: false,
-            fechada: false,
-            ordemEquipamentos: []
-        });
-    }
+    // Create new carreta
+    carretas[canal].push({
+        placa: '',
+        hus: [],
+        expedida: false,
+        fechada: false,
+        ordemEquipamentos: []
+    });
 
-    carregamentoState.carretaAtualIdx++;
+    carregamentoState.carretaAtualIdx = carretas[canal].length - 1;
     renderCarregamento();
 }
 
@@ -634,38 +594,34 @@ function expedirCarretaAtual() {
     carretas[canal][carretaIdx].expedida = true;
     carretas[canal][carretaIdx].fechada = true;
 
+    // Check if there are more HUs for this canal
     const hasMoreHUs = equipamentos.some(eq => {
         if (!eq.canalizacoes[canal]) return false;
         return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
     });
 
     if (hasMoreHUs) {
-        const totalCarretas = carretas[canal].length;
-        if (carretaIdx >= totalCarretas - 1) {
-            carretas[canal].push({
-                placa: `${canal} Extra ${totalCarretas}`,
-                hus: [],
-                expedida: false,
-                fechada: false,
-                ordemEquipamentos: []
-            });
-        }
-        carregamentoState.carretaAtualIdx++;
+        // Create new carreta automatically
+        carretas[canal].push({
+            placa: '',
+            hus: [],
+            expedida: false,
+            fechada: false,
+            ordemEquipamentos: []
+        });
+        carregamentoState.carretaAtualIdx = carretas[canal].length - 1;
     } else {
-        moveToNextCanalizacao();
+        // Move to next canalization
+        const keys = carregamentoState.canalizacoesOrdem;
+        const currentIdx = keys.indexOf(canal);
+        if (currentIdx < keys.length - 1) {
+            carregamentoState.canalizacaoAtual = keys[currentIdx + 1];
+            carregamentoState.carretaAtualIdx = 0;
+        }
     }
 
     renderExpedidas();
     showStep(4);
-}
-
-function moveToNextCanalizacao() {
-    const keys = carregamentoState.canalizacoesOrdem;
-    const currentIdx = keys.indexOf(carregamentoState.canalizacaoAtual);
-    if (currentIdx < keys.length - 1) {
-        carregamentoState.canalizacaoAtual = keys[currentIdx + 1];
-        carregamentoState.carretaAtualIdx = 0;
-    }
 }
 
 
@@ -688,12 +644,13 @@ function renderExpedidas() {
             section.dataset.idx = i;
 
             const totalPcts = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
+            const nome = carreta.placa || `${canal} Carreta ${i + 1}`;
 
             const header = document.createElement('div');
             header.className = 'carreta-expedida-header';
             header.style.background = color.main;
             header.innerHTML = `
-                <h3>${canal} — ${carreta.placa}</h3>
+                <h3>${canal} — ${nome}</h3>
                 <span>${carreta.hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pacotes</span>
                 <span>Equipamentos: ${carreta.ordemEquipamentos.map((v, idx) => `${idx+1}º ${getVeiculoIcon(v)} ${v}`).join(' | ')}</span>
             `;
@@ -708,7 +665,7 @@ function renderExpedidas() {
 
             const printBtn = document.createElement('button');
             printBtn.className = 'btn btn-primary btn-print-carreta';
-            printBtn.textContent = `🖨️ Imprimir ${carreta.placa}`;
+            printBtn.textContent = `🖨️ Imprimir ${nome}`;
             printBtn.addEventListener('click', () => printCarreta(canal, i));
             section.appendChild(printBtn);
 
@@ -716,7 +673,7 @@ function renderExpedidas() {
         }
     }
 
-    // Back to carregamento button if not all done
+    // Check if all done
     const allDone = Object.keys(carretas).every(canal => {
         return !equipamentos.some(eq => {
             if (!eq.canalizacoes[canal]) return false;
@@ -814,19 +771,14 @@ function resetAll() {
     equipamentos = [];
     carretas = {};
     carregamentoState = { canalizacaoAtual: null, carretaAtualIdx: 0, ordemChegada: [], canalizacoesOrdem: [] };
-    extraColorIndex = 0;
-
-    const predefined = ['SAL', 'SSE', 'JPA', 'SNR', 'PRN'];
-    for (const key of Object.keys(CANALIZACAO_COLORS)) {
-        if (!predefined.includes(key)) delete CANALIZACAO_COLORS[key];
-    }
+    colorIndex = 0;
+    canalizacaoColors = {};
 
     summaryCards.innerHTML = '';
-    carretasConfig.innerHTML = '';
+    document.getElementById('allQrCodesContainer').innerHTML = '';
     equipamentosLista.innerHTML = '';
     carretaConteudo.innerHTML = '';
     carretasExpedidas.innerHTML = '';
-    document.getElementById('allQrCodesContainer').innerHTML = '';
 
     showStep(1);
 }

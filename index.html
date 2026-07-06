@@ -35,22 +35,20 @@
             </div>
         </section>
 
-        <!-- STEP 2: Resumo + Configuração de Carretas -->
+        <!-- STEP 2: Resumo + QR Codes -->
         <section class="step-section" id="step2" style="display:none">
+            <div class="step-actions top-actions">
+                <button class="btn btn-primary" id="btnIniciarCarregamento">Iniciar Carregamento →</button>
+            </div>
+
             <h2>Resumo Geral</h2>
             <div class="summary-cards" id="summaryCards"></div>
-
-            <div class="config-carretas" id="configCarretas">
-                <h3>Configuração das Carretas</h3>
-                <p class="config-hint">Defina as placas das carretas para cada canalização. A ordem de carregamento é: SAL primeiro, SSE depois.</p>
-                <div id="carretasConfig"></div>
-            </div>
 
             <!-- All QR Codes (for first biping before expedition) -->
             <div id="allQrCodesContainer"></div>
 
             <div class="step-actions">
-                <button class="btn btn-primary" id="btnIniciarCarregamento">Iniciar Carregamento</button>
+                <button class="btn btn-primary" id="btnIniciarCarregamento2">Iniciar Carregamento →</button>
                 <button class="btn btn-secondary" id="btnVoltarUpload">Voltar</button>
             </div>
         </section>
@@ -60,6 +58,7 @@
             <div class="carregamento-header" id="carregamentoHeader">
                 <h2 id="carregamentoTitle">Carregando...</h2>
                 <div class="carreta-info" id="carretaAtualInfo"></div>
+                <div class="carreta-placa-input" id="carretaPlacaInput"></div>
             </div>
 
             <div class="carregamento-body">
@@ -71,17 +70,17 @@
 
                 <div class="carreta-panel">
                     <h3 id="carretaPanelTitle">Carreta Atual</h3>
-                    <div class="carreta-status" id="carretaStatus"></div>
                     <div id="carretaConteudo"></div>
-                    <div class="carreta-actions">
-                        <button class="btn btn-warning" id="btnFecharCarreta" style="display:none">🔒 Fechar Carreta e Abrir Próxima</button>
+                    <div class="carreta-actions" id="carretaActions">
+                        <button class="btn btn-warning" id="btnFecharCarreta" style="display:none">🔒 Fechar Carreta e Abrir Nova</button>
                         <button class="btn btn-success" id="btnExpedirCarreta" style="display:none">✅ Expedir Carreta</button>
                     </div>
                 </div>
             </div>
 
             <div class="step-actions">
-                <button class="btn btn-secondary" id="btnVoltarConfig">Voltar à Configuração</button>
+                <button class="btn btn-secondary" id="btnVoltarQR">← Voltar aos QR Codes</button>
+                <button class="btn btn-primary" id="btnVerExpedidas" style="display:none">Ver Carretas Expedidas →</button>
             </div>
         </section>
 
@@ -90,7 +89,7 @@
             <h2>Carretas Expedidas</h2>
             <div id="carretasExpedidas"></div>
             <div class="step-actions">
-                <button class="btn btn-secondary" id="btnVoltarCarregamento">Voltar ao Carregamento</button>
+                <button class="btn btn-secondary" id="btnVoltarCarregamento">← Voltar ao Carregamento</button>
                 <button class="btn btn-primary" id="btnNovaOperacao">Nova Operação</button>
             </div>
         </section>

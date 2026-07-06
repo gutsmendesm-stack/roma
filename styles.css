@@ -139,64 +139,7 @@ header h1 {
 .btn-warning { background: #d97706; color: white; }
 .btn-success { background: #059669; color: white; }
 
-/* Config Carretas */
-.config-carretas {
-    background: #fff;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    margin-bottom: 30px;
-}
-
-.config-carretas h3 { margin-bottom: 8px; color: #2c3e50; }
-.config-hint { color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px; }
-
-.config-canalizacao {
-    border-left: 4px solid #ccc;
-    padding: 15px 20px;
-    margin-bottom: 15px;
-    background: #fafafa;
-    border-radius: 0 8px 8px 0;
-}
-
-.config-canalizacao-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.config-canalizacao-header h4 { font-size: 1.1rem; }
-
-.btn-add-carreta {
-    background: #10b981;
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-add-carreta:hover { background: #059669; }
-.carretas-list { display: flex; flex-direction: column; gap: 8px; }
-.carreta-input-row { display: flex; align-items: center; gap: 10px; }
-.carreta-label { font-size: 0.9rem; font-weight: 600; color: #555; min-width: 140px; }
-
-.input-placa {
-    padding: 8px 12px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    width: 200px;
-}
-
-.input-placa:focus { border-color: #3498db; outline: none; }
-
-.btn-remove-carreta {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-}
+/* Config Carretas - removed, now dynamic in step 3 */
 
 /* Carregamento */
 .carregamento-header {
@@ -209,9 +152,25 @@ header h1 {
 }
 
 .carregamento-header h2 { margin-bottom: 10px; }
-.carreta-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
+.carreta-info { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px; }
 .pacotes-counter { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
 .badge { padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.95rem; color: white; }
+
+.carreta-placa-input {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.carreta-placa-input label { font-weight: 600; color: #555; }
+.carreta-placa-input .input-placa { width: 220px; }
+
+.top-actions {
+    margin-bottom: 20px;
+}
+
 .carregamento-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
 
 .equipamentos-panel, .carreta-panel {
@@ -489,3 +448,14 @@ header h1 {
     .carreta-input-row { flex-wrap: wrap; }
     .input-placa { width: 100%; }
 }
+
+
+.input-placa {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    width: 200px;
+}
+
+.input-placa:focus { border-color: #3498db; outline: none; }
