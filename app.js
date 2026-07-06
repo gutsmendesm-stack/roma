@@ -185,8 +185,8 @@ function parseRomaneios(pagesText) {
             const hu = match[1];
             const pacotes = parseInt(match[2]);
             const canalizacao = match[3].toUpperCase();
-            const baseMatch = canalizacao.match(/^([A-Z]+)/);
-            const canalizacaoKey = baseMatch ? baseMatch[1] : canalizacao;
+            // Use full canalization name as key (e.g., SAL1_A, XGR2_1A, SSE1_B)
+            const canalizacaoKey = canalizacao;
 
             const entry = { hu, pacotes, canalizacao, canalizacaoKey, veiculo, lacre, doca, operador, horario, romaneioId };
             if (!result[canalizacaoKey]) result[canalizacaoKey] = [];
@@ -348,24 +348,27 @@ function createCard(value, label, color) {
 // STEP 3: Carregamento - Dynamic carretas
 // ============================================================
 function iniciarCarregamento() {
-    // Initialize carretas if not already done (preserves state on back/forward)
     const keys = Object.keys(parsedData).sort();
 
     if (carregamentoState.canalizacoesOrdem.length === 0) {
         carregamentoState.canalizacoesOrdem = keys;
         carregamentoState.canalizacaoAtual = keys[0];
         carregamentoState.carretaAtualIdx = 0;
+        // Each canalization starts in its own group, user can merge
+        carregamentoState.grupos = keys.map(k => [k]); // [[SAL1_A], [SSE1_A], ...]
     }
 
-    // Initialize carretas for each canalization if not yet created
-    for (const key of keys) {
-        if (!carretas[key]) {
-            carretas[key] = [{
+    // Initialize carretas for each group
+    for (const grupo of carregamentoState.grupos) {
+        const grupoKey = grupo.join('+');
+        if (!carretas[grupoKey]) {
+            carretas[grupoKey] = [{
                 placa: '',
                 hus: [],
                 expedida: false,
                 fechada: false,
-                ordemEquipamentos: []
+                ordemEquipamentos: [],
+                canalizacoes: grupo
             }];
         }
     }
@@ -374,19 +377,33 @@ function iniciarCarregamento() {
     renderCarregamento();
 }
 
-function renderCarregamento() {
-    const canal = carregamentoState.canalizacaoAtual;
-    const color = getCanalizacaoColor(canal);
-    const carretaIdx = carregamentoState.carretaAtualIdx;
-    const carreta = carretas[canal][carretaIdx];
+function getGrupoAtualKey() {
+    const grupo = carregamentoState.grupos.find(g =>
+        g.includes(carregamentoState.canalizacaoAtual)
+    );
+    return grupo ? grupo.join('+') : carregamentoState.canalizacaoAtual;
+}
 
-    carregamentoTitle.textContent = `Carregando: ${canal}`;
+function getGrupoAtual() {
+    return carregamentoState.grupos.find(g =>
+        g.includes(carregamentoState.canalizacaoAtual)
+    ) || [carregamentoState.canalizacaoAtual];
+}
+
+function renderCarregamento() {
+    const grupoKey = getGrupoAtualKey();
+    const grupo = getGrupoAtual();
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const carreta = carretas[grupoKey][carretaIdx];
+    const color = getCanalizacaoColor(grupo[0]);
+
+    carregamentoTitle.textContent = `Carregando: ${grupo.join(' + ')}`;
     carregamentoTitle.style.color = color.main;
 
     const totalAlocado = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
     const carretaNum = carretaIdx + 1;
     carretaAtualInfo.innerHTML = `
-        <span class="badge" style="background:${color.main}">${canal} - Carreta ${carretaNum}</span>
+        <span class="badge" style="background:${color.main}">Carreta ${carretaNum}</span>
         <span class="pacotes-counter">${totalAlocado.toLocaleString('pt-BR')} pacotes alocados</span>
     `;
 
@@ -398,42 +415,134 @@ function renderCarregamento() {
     const placaInput = document.getElementById('inputPlacaAtual');
     placaInput.addEventListener('input', (e) => {
         carreta.placa = e.target.value.trim();
-        carretaPanelTitle.textContent = carreta.placa || `${canal} - Carreta ${carretaNum}`;
+        carretaPanelTitle.textContent = carreta.placa || `Carreta ${carretaNum}`;
     });
 
-    carretaPanelTitle.textContent = carreta.placa || `${canal} - Carreta ${carretaNum}`;
+    carretaPanelTitle.textContent = carreta.placa || `Carreta ${carretaNum}`;
 
-    renderEquipamentosLista(canal);
-    renderCarretaConteudo(canal, carretaIdx);
+    renderEquipamentosLista(grupo);
+    renderCarretaConteudo(grupoKey, carretaIdx);
     updateCarregamentoButtons();
+
+    // Show merge canalizacao button
+    renderMergeOption(grupo);
 
     // Show "ver expedidas" button if any carreta was expedida
     const hasExpedidas = Object.values(carretas).some(arr => arr.some(c => c.expedida));
     btnVerExpedidas.style.display = hasExpedidas ? 'inline-block' : 'none';
 }
 
-function renderEquipamentosLista(canal) {
+function renderMergeOption(grupoAtual) {
+    let mergeContainer = document.getElementById('mergeContainer');
+    if (!mergeContainer) {
+        mergeContainer = document.createElement('div');
+        mergeContainer.id = 'mergeContainer';
+        mergeContainer.className = 'merge-container';
+        document.getElementById('carregamentoHeader').appendChild(mergeContainer);
+    }
+    mergeContainer.innerHTML = '';
+
+    // Find canalizacoes that are NOT in the current group and not fully done
+    const otherCanais = carregamentoState.canalizacoesOrdem.filter(k => !grupoAtual.includes(k));
+    const available = otherCanais.filter(canal => {
+        return equipamentos.some(eq => {
+            if (!eq.canalizacoes[canal]) return false;
+            return eq.canalizacoes[canal].some(hu => !isHuAlocadaGlobal(canal, hu.hu));
+        });
+    });
+
+    if (available.length === 0) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'merge-wrapper';
+    wrapper.innerHTML = `<span class="merge-label">Juntar canalização nesta carreta:</span>`;
+
+    for (const canal of available) {
+        const color = getCanalizacaoColor(canal);
+        const btn = document.createElement('button');
+        btn.className = 'btn-merge';
+        btn.style.borderColor = color.main;
+        btn.style.color = color.main;
+        btn.textContent = `+ ${canal}`;
+        btn.addEventListener('click', () => mergeCanalizacao(canal));
+        wrapper.appendChild(btn);
+    }
+
+    mergeContainer.appendChild(wrapper);
+}
+
+function mergeCanalizacao(canal) {
+    const grupoAtualIdx = carregamentoState.grupos.findIndex(g =>
+        g.includes(carregamentoState.canalizacaoAtual)
+    );
+    const grupoAlvoIdx = carregamentoState.grupos.findIndex(g => g.includes(canal));
+
+    if (grupoAtualIdx === -1) return;
+
+    const oldGrupoKey = carregamentoState.grupos[grupoAtualIdx].join('+');
+
+    // Merge the canal into current group
+    carregamentoState.grupos[grupoAtualIdx].push(canal);
+
+    // Remove the other group
+    if (grupoAlvoIdx !== -1 && grupoAlvoIdx !== grupoAtualIdx) {
+        // Move any HUs from old group's carretas
+        const oldAlvoKey = carregamentoState.grupos[grupoAlvoIdx].join('+');
+        if (carretas[oldAlvoKey]) {
+            // Carretas from old group get discarded (empty ones)
+            delete carretas[oldAlvoKey];
+        }
+        carregamentoState.grupos.splice(grupoAlvoIdx > grupoAtualIdx ? grupoAlvoIdx : grupoAlvoIdx, 1);
+    }
+
+    // Rename carretas key
+    const newGrupoKey = carregamentoState.grupos[grupoAtualIdx > grupoAlvoIdx ? grupoAtualIdx - 1 : grupoAtualIdx].join('+');
+    if (oldGrupoKey !== newGrupoKey && carretas[oldGrupoKey]) {
+        carretas[newGrupoKey] = carretas[oldGrupoKey];
+        delete carretas[oldGrupoKey];
+        // Update canalizacoes in each carreta
+        for (const c of carretas[newGrupoKey]) {
+            c.canalizacoes = carregamentoState.grupos.find(g => g.includes(canal)) || [canal];
+        }
+    }
+
+    renderCarregamento();
+}
+
+function isHuAlocadaGlobal(canal, huId) {
+    for (const grupoKey of Object.keys(carretas)) {
+        for (const carreta of carretas[grupoKey]) {
+            if (carreta.hus.some(h => h.hu === huId)) return true;
+        }
+    }
+    return false;
+}
+
+function renderEquipamentosLista(grupo) {
     equipamentosLista.innerHTML = '';
+    const grupoKey = grupo.join('+');
 
     const aguardando = equipamentos.filter(eq => {
-        if (!eq.canalizacoes[canal]) return false;
-        return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+        // Check if this equipment has HUs for ANY canal in the group that are not allocated
+        return grupo.some(canal => {
+            if (!eq.canalizacoes[canal]) return false;
+            return eq.canalizacoes[canal].some(hu => !isHuAlocadaGlobal(canal, hu.hu));
+        });
     });
 
     if (aguardando.length === 0) {
-        equipamentosLista.innerHTML = '<p class="all-done">✅ Todos os equipamentos desta canalização já foram alocados!</p>';
+        equipamentosLista.innerHTML = '<p class="all-done">✅ Todos os equipamentos já foram alocados!</p>';
 
-        // Check if there's a next canalization
-        const keys = carregamentoState.canalizacoesOrdem;
-        const currentIdx = keys.indexOf(canal);
-        if (currentIdx < keys.length - 1) {
-            const nextCanal = keys[currentIdx + 1];
+        // Check if there's a next group
+        const currentGrupoIdx = carregamentoState.grupos.findIndex(g => g.includes(carregamentoState.canalizacaoAtual));
+        if (currentGrupoIdx < carregamentoState.grupos.length - 1) {
+            const nextGrupo = carregamentoState.grupos[currentGrupoIdx + 1];
             const btnNext = document.createElement('button');
             btnNext.className = 'btn btn-primary';
             btnNext.style.marginTop = '15px';
-            btnNext.textContent = `→ Ir para ${nextCanal}`;
+            btnNext.textContent = `→ Ir para ${nextGrupo.join(' + ')}`;
             btnNext.addEventListener('click', () => {
-                carregamentoState.canalizacaoAtual = nextCanal;
+                carregamentoState.canalizacaoAtual = nextGrupo[0];
                 carregamentoState.carretaAtualIdx = 0;
                 renderCarregamento();
             });
@@ -443,7 +552,13 @@ function renderEquipamentosLista(canal) {
     }
 
     for (const eq of aguardando) {
-        const husCanal = eq.canalizacoes[canal].filter(hu => !isHuAlocada(canal, hu.hu));
+        // Count HUs across all canals in the group
+        let husCanal = [];
+        for (const canal of grupo) {
+            if (eq.canalizacoes[canal]) {
+                husCanal = husCanal.concat(eq.canalizacoes[canal].filter(hu => !isHuAlocadaGlobal(canal, hu.hu)));
+            }
+        }
         const totalPcts = husCanal.reduce((s, h) => s + h.pacotes, 0);
         const icon = getVeiculoIcon(eq.veiculo);
 
@@ -458,26 +573,31 @@ function renderEquipamentosLista(canal) {
             <button class="btn-chegou">Chegou</button>
         `;
         item.querySelector('.btn-chegou').addEventListener('click', () => {
-            equipamentoChegou(eq.veiculo, canal);
+            equipamentoChegou(eq.veiculo, grupo);
         });
         equipamentosLista.appendChild(item);
     }
 }
 
-function equipamentoChegou(veiculo, canal) {
+function equipamentoChegou(veiculo, grupo) {
     if (!carregamentoState.ordemChegada.includes(veiculo)) {
         carregamentoState.ordemChegada.push(veiculo);
     }
 
     const eq = equipamentos.find(e => e.veiculo === veiculo);
-    if (!eq || !eq.canalizacoes[canal]) return;
+    if (!eq) return;
 
+    const grupoKey = grupo.join('+');
     const carretaIdx = carregamentoState.carretaAtualIdx;
-    const carreta = carretas[canal][carretaIdx];
+    const carreta = carretas[grupoKey][carretaIdx];
 
-    const husToAllocate = eq.canalizacoes[canal].filter(hu => !isHuAlocada(canal, hu.hu));
-    for (const hu of husToAllocate) {
-        carreta.hus.push(hu);
+    // Allocate HUs from all canals in the group
+    for (const canal of grupo) {
+        if (!eq.canalizacoes[canal]) continue;
+        const husToAllocate = eq.canalizacoes[canal].filter(hu => !isHuAlocadaGlobal(canal, hu.hu));
+        for (const hu of husToAllocate) {
+            carreta.hus.push(hu);
+        }
     }
 
     if (!carreta.ordemEquipamentos.includes(veiculo)) {
@@ -488,16 +608,12 @@ function equipamentoChegou(veiculo, canal) {
 }
 
 function isHuAlocada(canal, huId) {
-    if (!carretas[canal]) return false;
-    for (const carreta of carretas[canal]) {
-        if (carreta.hus.some(h => h.hu === huId)) return true;
-    }
-    return false;
+    return isHuAlocadaGlobal(canal, huId);
 }
 
 
-function renderCarretaConteudo(canal, carretaIdx) {
-    const carreta = carretas[canal][carretaIdx];
+function renderCarretaConteudo(grupoKey, carretaIdx) {
+    const carreta = carretas[grupoKey][carretaIdx];
     carretaConteudo.innerHTML = '';
 
     if (carreta.hus.length === 0) {
@@ -529,7 +645,7 @@ function renderCarretaConteudo(canal, carretaIdx) {
             </div>
         `;
         group.querySelector('.btn-remover-equip').addEventListener('click', () => {
-            removerEquipamentoDaCarreta(v, canal, carretaIdx);
+            removerEquipamentoDaCarreta(v, grupoKey, carretaIdx);
         });
         carretaConteudo.appendChild(group);
         ordem++;
@@ -542,13 +658,12 @@ function renderCarretaConteudo(canal, carretaIdx) {
     carretaConteudo.appendChild(totalDiv);
 }
 
-function removerEquipamentoDaCarreta(veiculo, canal, carretaIdx) {
-    const carreta = carretas[canal][carretaIdx];
+function removerEquipamentoDaCarreta(veiculo, grupoKey, carretaIdx) {
+    const carreta = carretas[grupoKey][carretaIdx];
     carreta.hus = carreta.hus.filter(h => h.veiculo !== veiculo);
     carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => v !== veiculo);
 
-    // Remove from ordemChegada so it appears back in aguardando
-    const stillInOther = carretas[canal].some((c, idx) =>
+    const stillInOther = carretas[grupoKey].some((c, idx) =>
         idx !== carretaIdx && c.hus.some(h => h.veiculo === veiculo)
     );
     if (!stillInOther) {
@@ -559,9 +674,9 @@ function removerEquipamentoDaCarreta(veiculo, canal, carretaIdx) {
 }
 
 function updateCarregamentoButtons() {
-    const canal = carregamentoState.canalizacaoAtual;
+    const grupoKey = getGrupoAtualKey();
     const carretaIdx = carregamentoState.carretaAtualIdx;
-    const carreta = carretas[canal][carretaIdx];
+    const carreta = carretas[grupoKey][carretaIdx];
 
     btnFecharCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
     btnExpedirCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
@@ -569,9 +684,9 @@ function updateCarregamentoButtons() {
 }
 
 function validarPlacaAtual() {
-    const canal = carregamentoState.canalizacaoAtual;
+    const grupoKey = getGrupoAtualKey();
     const carretaIdx = carregamentoState.carretaAtualIdx;
-    const carreta = carretas[canal][carretaIdx];
+    const carreta = carretas[grupoKey][carretaIdx];
 
     if (!carreta.placa || carreta.placa.trim() === '') {
         alert('⚠️ Preencha a placa da carreta antes de continuar!');
@@ -589,58 +704,60 @@ function validarPlacaAtual() {
 function fecharCarretaAtual() {
     if (!validarPlacaAtual()) return;
 
-    const canal = carregamentoState.canalizacaoAtual;
+    const grupoKey = getGrupoAtualKey();
     const carretaIdx = carregamentoState.carretaAtualIdx;
 
-    // Fechar marca como fechada E expedida (pronta pra imprimir)
-    carretas[canal][carretaIdx].fechada = true;
-    carretas[canal][carretaIdx].expedida = true;
+    carretas[grupoKey][carretaIdx].fechada = true;
+    carretas[grupoKey][carretaIdx].expedida = true;
 
-    // Create new carreta
-    carretas[canal].push({
+    carretas[grupoKey].push({
         placa: '',
         hus: [],
         expedida: false,
         fechada: false,
-        ordemEquipamentos: []
+        ordemEquipamentos: [],
+        canalizacoes: getGrupoAtual()
     });
 
-    carregamentoState.carretaAtualIdx = carretas[canal].length - 1;
+    carregamentoState.carretaAtualIdx = carretas[grupoKey].length - 1;
     renderCarregamento();
 }
 
 function expedirCarretaAtual() {
     if (!validarPlacaAtual()) return;
 
-    const canal = carregamentoState.canalizacaoAtual;
+    const grupoKey = getGrupoAtualKey();
+    const grupo = getGrupoAtual();
     const carretaIdx = carregamentoState.carretaAtualIdx;
 
-    carretas[canal][carretaIdx].expedida = true;
-    carretas[canal][carretaIdx].fechada = true;
+    carretas[grupoKey][carretaIdx].expedida = true;
+    carretas[grupoKey][carretaIdx].fechada = true;
 
-    // Check if there are more HUs for this canal
+    // Check if there are more HUs for this group
     const hasMoreHUs = equipamentos.some(eq => {
-        if (!eq.canalizacoes[canal]) return false;
-        return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+        return grupo.some(canal => {
+            if (!eq.canalizacoes[canal]) return false;
+            return eq.canalizacoes[canal].some(hu => !isHuAlocadaGlobal(canal, hu.hu));
+        });
     });
 
     if (hasMoreHUs) {
-        // Create new carreta automatically
-        carretas[canal].push({
+        carretas[grupoKey].push({
             placa: '',
             hus: [],
             expedida: false,
             fechada: false,
-            ordemEquipamentos: []
+            ordemEquipamentos: [],
+            canalizacoes: grupo
         });
-        carregamentoState.carretaAtualIdx = carretas[canal].length - 1;
+        carregamentoState.carretaAtualIdx = carretas[grupoKey].length - 1;
         renderCarregamento();
     } else {
-        // Move to next canalization
-        const keys = carregamentoState.canalizacoesOrdem;
-        const currentIdx = keys.indexOf(canal);
-        if (currentIdx < keys.length - 1) {
-            carregamentoState.canalizacaoAtual = keys[currentIdx + 1];
+        // Move to next group
+        const currentGrupoIdx = carregamentoState.grupos.findIndex(g => g.includes(carregamentoState.canalizacaoAtual));
+        if (currentGrupoIdx < carregamentoState.grupos.length - 1) {
+            const nextGrupo = carregamentoState.grupos[currentGrupoIdx + 1];
+            carregamentoState.canalizacaoAtual = nextGrupo[0];
             carregamentoState.carretaAtualIdx = 0;
         }
     }
@@ -656,26 +773,27 @@ function expedirCarretaAtual() {
 function renderExpedidas() {
     carretasExpedidas.innerHTML = '';
 
-    for (const canal of Object.keys(carretas)) {
-        const color = getCanalizacaoColor(canal);
-        for (let i = 0; i < carretas[canal].length; i++) {
-            const carreta = carretas[canal][i];
+    for (const grupoKey of Object.keys(carretas)) {
+        const canais = grupoKey.split('+');
+        const color = getCanalizacaoColor(canais[0]);
+        for (let i = 0; i < carretas[grupoKey].length; i++) {
+            const carreta = carretas[grupoKey][i];
             if (!carreta.expedida) continue;
 
             const section = document.createElement('div');
             section.className = 'carreta-expedida';
             section.style.borderColor = color.main;
-            section.dataset.canal = canal;
+            section.dataset.grupoKey = grupoKey;
             section.dataset.idx = i;
 
             const totalPcts = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
-            const nome = carreta.placa || `${canal} Carreta ${i + 1}`;
+            const nome = carreta.placa || `Carreta ${i + 1}`;
 
             const header = document.createElement('div');
             header.className = 'carreta-expedida-header';
             header.style.background = color.main;
             header.innerHTML = `
-                <h3>${canal} — ${nome}</h3>
+                <h3>${canais.join(' + ')} — ${nome}</h3>
                 <span>${carreta.hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pacotes</span>
                 <span>Equipamentos: ${carreta.ordemEquipamentos.map((v, idx) => `${idx+1}º ${getVeiculoIcon(v)} ${v}`).join(' | ')}</span>
             `;
@@ -691,7 +809,7 @@ function renderExpedidas() {
             const printBtn = document.createElement('button');
             printBtn.className = 'btn btn-primary btn-print-carreta';
             printBtn.textContent = `🖨️ Imprimir ${nome}`;
-            printBtn.addEventListener('click', () => printCarreta(canal, i));
+            printBtn.addEventListener('click', () => printCarreta(grupoKey, i));
             section.appendChild(printBtn);
 
             carretasExpedidas.appendChild(section);
@@ -699,10 +817,10 @@ function renderExpedidas() {
     }
 
     // Check if all done
-    const allDone = Object.keys(carretas).every(canal => {
+    const allDone = carregamentoState.canalizacoesOrdem.every(canal => {
         return !equipamentos.some(eq => {
             if (!eq.canalizacoes[canal]) return false;
-            return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+            return eq.canalizacoes[canal].some(hu => !isHuAlocadaGlobal(canal, hu.hu));
         });
     });
 
@@ -766,11 +884,11 @@ function createQRCard(item, color) {
 // ============================================================
 // Print Functions
 // ============================================================
-function printCarreta(canal, idx) {
+function printCarreta(grupoKey, idx) {
     document.body.classList.add('print-single-carreta');
     const sections = document.querySelectorAll('.carreta-expedida');
     sections.forEach(s => {
-        if (s.dataset.canal === canal && parseInt(s.dataset.idx) === idx) {
+        if (s.dataset.grupoKey === grupoKey && parseInt(s.dataset.idx) === idx) {
             s.classList.add('print-visible');
         } else {
             s.classList.remove('print-visible');

@@ -215,6 +215,24 @@ header h1 {
 .all-done { text-align: center; padding: 20px; color: #059669; font-weight: 600; font-size: 1.1rem; }
 .empty-carreta { text-align: center; padding: 20px; color: #9ca3af; font-style: italic; }
 
+/* Merge canalizacoes */
+.merge-container { margin-top: 15px; }
+.merge-wrapper { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.merge-label { font-size: 0.85rem; color: #555; font-weight: 600; }
+
+.btn-merge {
+    background: white;
+    border: 2px solid;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-merge:hover { transform: scale(1.05); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
 .carreta-equip-group {
     padding: 10px 15px;
     margin-bottom: 8px;
