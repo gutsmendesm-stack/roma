@@ -568,11 +568,33 @@ function updateCarregamentoButtons() {
     btnFecharCarreta.textContent = '🔒 Fechar Carreta e Abrir Nova';
 }
 
+function validarPlacaAtual() {
+    const canal = carregamentoState.canalizacaoAtual;
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const carreta = carretas[canal][carretaIdx];
+
+    if (!carreta.placa || carreta.placa.trim() === '') {
+        alert('⚠️ Preencha a placa da carreta antes de continuar!');
+        const placaInput = document.getElementById('inputPlacaAtual');
+        if (placaInput) {
+            placaInput.focus();
+            placaInput.style.borderColor = '#e74c3c';
+            setTimeout(() => { placaInput.style.borderColor = ''; }, 2000);
+        }
+        return false;
+    }
+    return true;
+}
+
 function fecharCarretaAtual() {
+    if (!validarPlacaAtual()) return;
+
     const canal = carregamentoState.canalizacaoAtual;
     const carretaIdx = carregamentoState.carretaAtualIdx;
 
+    // Fechar marca como fechada E expedida (pronta pra imprimir)
     carretas[canal][carretaIdx].fechada = true;
+    carretas[canal][carretaIdx].expedida = true;
 
     // Create new carreta
     carretas[canal].push({
@@ -588,6 +610,8 @@ function fecharCarretaAtual() {
 }
 
 function expedirCarretaAtual() {
+    if (!validarPlacaAtual()) return;
+
     const canal = carregamentoState.canalizacaoAtual;
     const carretaIdx = carregamentoState.carretaAtualIdx;
 
@@ -610,6 +634,7 @@ function expedirCarretaAtual() {
             ordemEquipamentos: []
         });
         carregamentoState.carretaAtualIdx = carretas[canal].length - 1;
+        renderCarregamento();
     } else {
         // Move to next canalization
         const keys = carregamentoState.canalizacoesOrdem;
