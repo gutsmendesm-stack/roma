@@ -12,10 +12,11 @@
     <div class="container">
         <header>
             <h1>Leitor de Romaneios</h1>
-            <p class="subtitle">Upload do PDF para extrair HUs e gerar QR Codes separados por canalizacao</p>
+            <p class="subtitle">Upload do PDF para extrair HUs e organizar por carretas</p>
         </header>
 
-        <section class="upload-section">
+        <!-- STEP 1: Upload -->
+        <section class="upload-section" id="step1">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📄</div>
                 <p class="upload-text">Arraste o PDF aqui ou clique para selecionar</p>
@@ -34,15 +35,62 @@
             </div>
         </section>
 
-        <!-- Summary -->
-        <section class="summary-section" id="summarySection" style="display:none">
+        <!-- STEP 2: Resumo + Configuração de Carretas -->
+        <section class="step-section" id="step2" style="display:none">
             <h2>Resumo Geral</h2>
             <div class="summary-cards" id="summaryCards"></div>
-            <div class="actions" id="actionsContainer"></div>
+
+            <div class="config-carretas" id="configCarretas">
+                <h3>Configuração das Carretas</h3>
+                <p class="config-hint">Defina as placas das carretas para cada canalização. A ordem de carregamento é: SAL primeiro, SSE depois.</p>
+                <div id="carretasConfig"></div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-primary" id="btnIniciarCarregamento">Iniciar Carregamento</button>
+                <button class="btn btn-secondary" id="btnVoltarUpload">Voltar</button>
+            </div>
         </section>
 
-        <!-- Canalizacoes dynamically generated -->
-        <div id="canalizacoesContainer"></div>
+        <!-- STEP 3: Carregamento -->
+        <section class="step-section" id="step3" style="display:none">
+            <div class="carregamento-header" id="carregamentoHeader">
+                <h2 id="carregamentoTitle">Carregando...</h2>
+                <div class="carreta-info" id="carretaAtualInfo"></div>
+            </div>
+
+            <div class="carregamento-body">
+                <div class="equipamentos-panel">
+                    <h3>Equipamentos Aguardando</h3>
+                    <p class="panel-hint">Clique no equipamento conforme ele chega no terminal</p>
+                    <div id="equipamentosLista"></div>
+                </div>
+
+                <div class="carreta-panel">
+                    <h3 id="carretaPanelTitle">Carreta Atual</h3>
+                    <div class="carreta-status" id="carretaStatus"></div>
+                    <div id="carretaConteudo"></div>
+                    <div class="carreta-actions">
+                        <button class="btn btn-warning" id="btnFecharCarreta" style="display:none">🔒 Fechar Carreta e Abrir Próxima</button>
+                        <button class="btn btn-success" id="btnExpedirCarreta" style="display:none">✅ Expedir Carreta</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" id="btnVoltarConfig">Voltar à Configuração</button>
+            </div>
+        </section>
+
+        <!-- STEP 4: Resultado / Impressão por Carreta -->
+        <section class="step-section" id="step4" style="display:none">
+            <h2>Carretas Expedidas</h2>
+            <div id="carretasExpedidas"></div>
+            <div class="step-actions">
+                <button class="btn btn-secondary" id="btnVoltarCarregamento">Voltar ao Carregamento</button>
+                <button class="btn btn-primary" id="btnNovaOperacao">Nova Operação</button>
+            </div>
+        </section>
     </div>
 
     <script src="app.js"></script>

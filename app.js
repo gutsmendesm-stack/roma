@@ -3,9 +3,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 // ============================================================
 // COLOR CONFIGURATION
-// Define colors for known canalizations. Any new canalization
-// found in the PDF will get an auto-assigned color from the
-// extras palette.
 // ============================================================
 const CANALIZACAO_COLORS = {
     'SAL': { main: '#1a56db', light: '#eff6ff', border: '#93c5fd', name: 'SAL' },
@@ -15,32 +12,42 @@ const CANALIZACAO_COLORS = {
     'PRN': { main: '#d97706', light: '#fffbeb', border: '#fcd34d', name: 'PRN' },
 };
 
-// Extra colors for additional canalizations (auto-assigned)
 const EXTRA_COLORS = [
-    { main: '#7c3aed', light: '#f5f3ff', border: '#c4b5fd' },  // purple
-    { main: '#059669', light: '#ecfdf5', border: '#6ee7b7' },  // green
-    { main: '#d97706', light: '#fffbeb', border: '#fcd34d' },  // amber
-    { main: '#0891b2', light: '#ecfeff', border: '#67e8f9' },  // cyan
-    { main: '#be185d', light: '#fdf2f8', border: '#f9a8d4' },  // pink
-    { main: '#4338ca', light: '#eef2ff', border: '#a5b4fc' },  // indigo
-    { main: '#b45309', light: '#fef3c7', border: '#fbbf24' },  // orange-dark
-    { main: '#065f46', light: '#d1fae5', border: '#34d399' },  // emerald
-    { main: '#9333ea', light: '#faf5ff', border: '#d8b4fe' },  // violet
-    { main: '#0369a1', light: '#f0f9ff', border: '#7dd3fc' },  // sky
+    { main: '#0891b2', light: '#ecfeff', border: '#67e8f9' },
+    { main: '#be185d', light: '#fdf2f8', border: '#f9a8d4' },
+    { main: '#4338ca', light: '#eef2ff', border: '#a5b4fc' },
+    { main: '#b45309', light: '#fef3c7', border: '#fbbf24' },
+    { main: '#065f46', light: '#d1fae5', border: '#34d399' },
 ];
 
 let extraColorIndex = 0;
 
-function getCanalizacaoColor(canalizacaoKey) {
-    if (CANALIZACAO_COLORS[canalizacaoKey]) {
-        return CANALIZACAO_COLORS[canalizacaoKey];
-    }
-    // Auto-assign a color for unknown canalizations
+function getCanalizacaoColor(key) {
+    if (CANALIZACAO_COLORS[key]) return CANALIZACAO_COLORS[key];
     const color = EXTRA_COLORS[extraColorIndex % EXTRA_COLORS.length];
-    CANALIZACAO_COLORS[canalizacaoKey] = { ...color, name: canalizacaoKey };
+    CANALIZACAO_COLORS[key] = { ...color, name: key };
     extraColorIndex++;
-    return CANALIZACAO_COLORS[canalizacaoKey];
+    return CANALIZACAO_COLORS[key];
 }
+
+function getVeiculoIcon(veiculo) {
+    const v = veiculo.toUpperCase();
+    return (v.startsWith('PAG') || v.startsWith('PKC')) ? '✈️' : '📥';
+}
+
+
+// ============================================================
+// STATE
+// ============================================================
+let parsedData = {};           // { canalizacaoKey: [entries] }
+let equipamentos = [];         // [{ veiculo, hus: [{...}], canalizacoes: {...} }]
+let carretas = {};             // { canalizacaoKey: [{ placa, hus: [], expedida: false }] }
+let carregamentoState = {
+    canalizacaoAtual: null,     // which canalization is being loaded now
+    carretaAtualIdx: 0,         // index of current carreta being loaded
+    ordemChegada: [],           // equipment arrival order
+    canalizacoesOrdem: [],      // order to load canalizations (SAL first, SSE second, etc)
+};
 
 // ============================================================
 // DOM Elements
@@ -51,13 +58,32 @@ const fileInfo = document.getElementById('fileInfo');
 const fileName = document.getElementById('fileName');
 const clearFile = document.getElementById('clearFile');
 const loading = document.getElementById('loading');
-const summarySection = document.getElementById('summarySection');
-const summaryCards = document.getElementById('summaryCards');
-const actionsContainer = document.getElementById('actionsContainer');
-const canalizacoesContainer = document.getElementById('canalizacoesContainer');
 
-// State: { canalizacaoKey: [entries] }
-let parsedData = {};
+const step1 = document.getElementById('step1');
+const step2 = document.getElementById('step2');
+const step3 = document.getElementById('step3');
+const step4 = document.getElementById('step4');
+
+const summaryCards = document.getElementById('summaryCards');
+const carretasConfig = document.getElementById('carretasConfig');
+const btnIniciarCarregamento = document.getElementById('btnIniciarCarregamento');
+const btnVoltarUpload = document.getElementById('btnVoltarUpload');
+
+
+const carregamentoHeader = document.getElementById('carregamentoHeader');
+const carregamentoTitle = document.getElementById('carregamentoTitle');
+const carretaAtualInfo = document.getElementById('carretaAtualInfo');
+const equipamentosLista = document.getElementById('equipamentosLista');
+const carretaPanelTitle = document.getElementById('carretaPanelTitle');
+const carretaStatus = document.getElementById('carretaStatus');
+const carretaConteudo = document.getElementById('carretaConteudo');
+const btnFecharCarreta = document.getElementById('btnFecharCarreta');
+const btnExpedirCarreta = document.getElementById('btnExpedirCarreta');
+const btnVoltarConfig = document.getElementById('btnVoltarConfig');
+
+const carretasExpedidas = document.getElementById('carretasExpedidas');
+const btnVoltarCarregamento = document.getElementById('btnVoltarCarregamento');
+const btnNovaOperacao = document.getElementById('btnNovaOperacao');
 
 // ============================================================
 // Event Listeners
@@ -66,31 +92,40 @@ uploadArea.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileSelect);
 clearFile.addEventListener('click', resetAll);
 
-// Drag and drop
-uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadArea.classList.add('dragover');
-});
-uploadArea.addEventListener('dragleave', () => {
-    uploadArea.classList.remove('dragover');
-});
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
 uploadArea.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadArea.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') {
-        processFile(file);
-    }
+    if (file && file.type === 'application/pdf') processFile(file);
 });
+
+btnIniciarCarregamento.addEventListener('click', iniciarCarregamento);
+btnVoltarUpload.addEventListener('click', () => showStep(1));
+btnFecharCarreta.addEventListener('click', fecharCarretaAtual);
+btnExpedirCarreta.addEventListener('click', expedirCarretaAtual);
+btnVoltarConfig.addEventListener('click', () => showStep(2));
+btnVoltarCarregamento.addEventListener('click', () => showStep(3));
+btnNovaOperacao.addEventListener('click', resetAll);
+
+
+// ============================================================
+// Navigation
+// ============================================================
+function showStep(n) {
+    step1.style.display = n === 1 ? 'block' : 'none';
+    step2.style.display = n === 2 ? 'block' : 'none';
+    step3.style.display = n === 3 ? 'block' : 'none';
+    step4.style.display = n === 4 ? 'block' : 'none';
+}
 
 // ============================================================
 // File Processing
 // ============================================================
 function handleFileSelect(e) {
     const file = e.target.files[0];
-    if (file) {
-        processFile(file);
-    }
+    if (file) processFile(file);
 }
 
 async function processFile(file) {
@@ -102,7 +137,6 @@ async function processFile(file) {
     try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
         const allText = [];
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
@@ -110,9 +144,9 @@ async function processFile(file) {
             const pageText = textContent.items.map(item => item.str).join(' ');
             allText.push(pageText);
         }
-
         parsedData = parseRomaneios(allText);
-        displayResults();
+        equipamentos = buildEquipamentos(parsedData);
+        showStep2();
     } catch (error) {
         console.error('Erro ao processar PDF:', error);
         alert('Erro ao processar o PDF. Verifique se o arquivo e valido.');
@@ -122,14 +156,13 @@ async function processFile(file) {
     }
 }
 
+
 // ============================================================
-// PDF Parsing - supports ANY canalization
+// PDF Parsing
 // ============================================================
 function parseRomaneios(pagesText) {
     const result = {};
-
     for (const pageText of pagesText) {
-        // Extract romaneio metadata
         const idMatch = pageText.match(/ID\s+(\d{13,19})/);
         const romaneioId = idMatch ? idMatch[1] : '';
 
@@ -149,61 +182,53 @@ function parseRomaneios(pagesText) {
         const inicioMatch = pageText.match(/In[ií]cio:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/i);
         const horario = inicioMatch ? inicioMatch[1] : '';
 
-        // Generic canalization pattern - captures any canalization format:
-        // Examples: SAL1_A, SSE1_A, JPA1_B, SNR1_A, PRN2_C, or even SAL_A, JPA_B
-        // Pattern: container_number [master]? quantity canalization_code
         const containerPattern = /(\d{13,19})\s*(?:\[master\])?\s+(\d+)\s+([A-Z]{2,10}\d*_[A-Z0-9]+)/gi;
         let match;
-
         while ((match = containerPattern.exec(pageText)) !== null) {
             const hu = match[1];
             const pacotes = parseInt(match[2]);
             const canalizacao = match[3].toUpperCase();
-
-            // Extract the base canalization name (e.g., SAL from SAL1_A, JPA from JPA1_B)
             const baseMatch = canalizacao.match(/^([A-Z]+)/);
             const canalizacaoKey = baseMatch ? baseMatch[1] : canalizacao;
 
-            const entry = {
-                hu,
-                pacotes,
-                canalizacao,
-                canalizacaoKey,
-                veiculo,
-                lacre,
-                doca,
-                operador,
-                horario,
-                romaneioId
-            };
-
-            if (!result[canalizacaoKey]) {
-                result[canalizacaoKey] = [];
-            }
+            const entry = { hu, pacotes, canalizacao, canalizacaoKey, veiculo, lacre, doca, operador, horario, romaneioId };
+            if (!result[canalizacaoKey]) result[canalizacaoKey] = [];
             result[canalizacaoKey].push(entry);
         }
     }
-
     return result;
 }
 
+
 // ============================================================
-// Display Results - dynamically generates sections
+// Build Equipamentos - group HUs by vehicle
 // ============================================================
-function displayResults() {
+function buildEquipamentos(data) {
+    const veiculoMap = {};
+    for (const key of Object.keys(data)) {
+        for (const entry of data[key]) {
+            const vid = entry.veiculo || 'SEM_VEICULO';
+            if (!veiculoMap[vid]) {
+                veiculoMap[vid] = { veiculo: entry.veiculo, hus: [], canalizacoes: {} };
+            }
+            veiculoMap[vid].hus.push(entry);
+            if (!veiculoMap[vid].canalizacoes[key]) veiculoMap[vid].canalizacoes[key] = [];
+            veiculoMap[vid].canalizacoes[key].push(entry);
+        }
+    }
+    return Object.values(veiculoMap);
+}
+
+// ============================================================
+// STEP 2: Summary + Carreta Config
+// ============================================================
+function showStep2() {
+    showStep(2);
     const keys = Object.keys(parsedData).sort();
 
-    if (keys.length === 0) {
-        alert('Nenhuma HU encontrada no PDF. Verifique se o formato do romaneio e compativel.');
-        resetAll();
-        return;
-    }
-
-    // Calculate totals
-    let totalHUs = 0;
-    let totalPacotes = 0;
+    // Summary cards
+    let totalHUs = 0, totalPacotes = 0;
     const stats = {};
-
     for (const key of keys) {
         const items = parsedData[key];
         const count = items.length;
@@ -213,71 +238,65 @@ function displayResults() {
         totalPacotes += pacotes;
     }
 
-    // Build summary cards
     summaryCards.innerHTML = '';
-
-    // Total HUs card
-    const totalHUCard = createCard(totalHUs, 'Total de HUs', '#2c3e50');
-    summaryCards.appendChild(totalHUCard);
-
-    // Total Pacotes card
-    const totalPacotesCard = createCard(totalPacotes.toLocaleString('pt-BR'), 'Total de Pacotes', '#2c3e50');
-    summaryCards.appendChild(totalPacotesCard);
-
-    // Per-canalizacao cards
+    summaryCards.appendChild(createCard(totalHUs, 'Total de HUs', '#2c3e50'));
+    summaryCards.appendChild(createCard(totalPacotes.toLocaleString('pt-BR'), 'Total de Pacotes', '#2c3e50'));
     for (const key of keys) {
         const color = getCanalizacaoColor(key);
-        const huCard = createCard(stats[key].count, `HUs ${key}`, color.main);
-        summaryCards.appendChild(huCard);
-
-        const pacotesCard = createCard(stats[key].pacotes.toLocaleString('pt-BR'), `Pacotes ${key}`, color.main);
-        summaryCards.appendChild(pacotesCard);
+        summaryCards.appendChild(createCard(stats[key].count, `HUs ${key}`, color.main));
+        summaryCards.appendChild(createCard(stats[key].pacotes.toLocaleString('pt-BR'), `Pacotes ${key}`, color.main));
     }
 
-    // Build action buttons
-    actionsContainer.innerHTML = '';
 
-    for (const key of keys) {
-        const color = getCanalizacaoColor(key);
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.style.background = color.main;
-        btn.style.color = 'white';
-        btn.textContent = `Imprimir ${key}`;
-        btn.addEventListener('click', () => printSingle(key));
-        actionsContainer.appendChild(btn);
-    }
-
-    if (keys.length > 1) {
-        const btnAll = document.createElement('button');
-        btnAll.className = 'btn btn-all';
-        btnAll.textContent = 'Imprimir Tudo';
-        btnAll.addEventListener('click', () => {
-            document.body.classList.remove('print-single');
-            window.print();
-        });
-        actionsContainer.appendChild(btnAll);
-    }
-
-    // Build canalizacao sections
-    canalizacoesContainer.innerHTML = '';
-
-    keys.forEach((key, index) => {
-        // Add divider between sections
-        if (index > 0) {
-            const divider = document.createElement('div');
-            divider.className = 'section-divider';
-            const prevKey = keys[index - 1];
-            divider.innerHTML = `&#9888; ACIMA: ${prevKey} &mdash; ABAIXO: ${key} &#9888;`;
-            canalizacoesContainer.appendChild(divider);
-        }
-
-        const color = getCanalizacaoColor(key);
-        const section = createCanalizacaoSection(key, parsedData[key], color);
-        canalizacoesContainer.appendChild(section);
+    // Carreta config - SAL first, then SSE, then others
+    carretasConfig.innerHTML = '';
+    const sortedKeys = keys.sort((a, b) => {
+        if (a === 'SAL') return -1;
+        if (b === 'SAL') return 1;
+        if (a === 'SSE') return -1;
+        if (b === 'SSE') return 1;
+        return a.localeCompare(b);
     });
 
-    summarySection.style.display = 'block';
+    for (const key of sortedKeys) {
+        const color = getCanalizacaoColor(key);
+        const section = document.createElement('div');
+        section.className = 'config-canalizacao';
+        section.style.borderLeftColor = color.main;
+
+        const totalPcts = stats[key].pacotes.toLocaleString('pt-BR');
+        section.innerHTML = `
+            <div class="config-canalizacao-header">
+                <h4 style="color: ${color.main}">${key} — ${totalPcts} pacotes</h4>
+                <button class="btn-add-carreta" data-canal="${key}">+ Carreta</button>
+            </div>
+            <div class="carretas-list" id="carretas-${key}">
+                <div class="carreta-input-row">
+                    <span class="carreta-label">${key} - Carreta 1:</span>
+                    <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="0">
+                </div>
+                <div class="carreta-input-row">
+                    <span class="carreta-label">${key} - Carreta 2:</span>
+                    <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="1">
+                </div>
+            </div>
+        `;
+        carretasConfig.appendChild(section);
+
+        // Add carreta button
+        section.querySelector('.btn-add-carreta').addEventListener('click', () => {
+            const list = document.getElementById(`carretas-${key}`);
+            const count = list.querySelectorAll('.carreta-input-row').length;
+            const row = document.createElement('div');
+            row.className = 'carreta-input-row';
+            row.innerHTML = `
+                <span class="carreta-label">${key} - Carreta ${count + 1} (extra):</span>
+                <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="${count}">
+                <button class="btn-remove-carreta" onclick="this.parentElement.remove()">✕</button>
+            `;
+            list.appendChild(row);
+        });
+    }
 }
 
 function createCard(value, label, color) {
@@ -291,103 +310,425 @@ function createCard(value, label, color) {
     return card;
 }
 
-function createCanalizacaoSection(key, items, color) {
-    const section = document.createElement('section');
-    section.className = 'canalizacao-section';
-    section.dataset.canalizacao = key;
-    section.style.borderColor = color.main;
-    section.style.background = color.light;
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'section-header';
-    header.style.borderBottomColor = color.main;
-    header.innerHTML = `
-        <h2 style="color: ${color.main}">CANALIZACAO ${key}</h2>
-        <span class="badge" style="background: ${color.main}">${items.length} HUs</span>
-    `;
-    section.appendChild(header);
+// ============================================================
+// STEP 3: Carregamento
+// ============================================================
+function iniciarCarregamento() {
+    // Read carreta config from inputs
+    const keys = Object.keys(parsedData).sort((a, b) => {
+        if (a === 'SAL') return -1;
+        if (b === 'SAL') return 1;
+        if (a === 'SSE') return -1;
+        if (b === 'SSE') return 1;
+        return a.localeCompare(b);
+    });
 
-    // QR Grid
-    const grid = document.createElement('div');
-    grid.className = 'qr-grid';
-    section.appendChild(grid);
-
-    // Render QR cards
-    for (const item of items) {
-        const card = document.createElement('div');
-        card.className = 'qr-card';
-        card.style.borderColor = color.border;
-
-        // QR Code canvas
-        const canvas = document.createElement('canvas');
-        card.appendChild(canvas);
-
-        // Generate QR Code - ALWAYS BLACK
-        try {
-            new QRious({
-                element: canvas,
-                value: item.hu,
-                size: 180,
-                foreground: '#000000',
-                background: '#ffffff',
-                level: 'M'
+    carretas = {};
+    for (const key of keys) {
+        const inputs = document.querySelectorAll(`.input-placa[data-canal="${key}"]`);
+        carretas[key] = [];
+        inputs.forEach((input, idx) => {
+            carretas[key].push({
+                placa: input.value.trim() || `${key} Carreta ${idx + 1}`,
+                hus: [],
+                expedida: false,
+                fechada: false,
+                ordemEquipamentos: []
             });
-        } catch (err) {
-            console.error('Erro ao gerar QR Code:', err);
-            canvas.style.display = 'none';
-            const errorMsg = document.createElement('div');
-            errorMsg.textContent = 'Erro no QR';
-            errorMsg.style.color = '#e74c3c';
-            card.appendChild(errorMsg);
-        }
-
-        // HU number
-        const huLabel = document.createElement('div');
-        huLabel.className = 'qr-hu-number';
-        huLabel.textContent = item.hu;
-        card.appendChild(huLabel);
-
-        // Pacotes
-        const pacotesLabel = document.createElement('div');
-        pacotesLabel.className = 'qr-pacotes';
-        pacotesLabel.textContent = `${item.pacotes} pacotes`;
-        card.appendChild(pacotesLabel);
-
-        // Veiculo
-        if (item.veiculo) {
-            const veiculoLabel = document.createElement('div');
-            veiculoLabel.className = 'qr-veiculo';
-            // Identify vehicle type: PAG/PKC = lâmina/pallet, qualquer outro = porão
-            const veiculoUpper = item.veiculo.toUpperCase();
-            const isLamina = veiculoUpper.startsWith('PAG') || veiculoUpper.startsWith('PKC');
-            const icon = isLamina ? '✈️' : '📥';
-            veiculoLabel.textContent = `${icon} ${item.veiculo}`;
-            card.appendChild(veiculoLabel);
-        }
-
-        // Canalizacao badge
-        const canalizacaoLabel = document.createElement('div');
-        canalizacaoLabel.className = 'qr-canalizacao';
-        canalizacaoLabel.style.background = color.main;
-        canalizacaoLabel.textContent = item.canalizacao;
-        card.appendChild(canalizacaoLabel);
-
-        grid.appendChild(card);
+        });
     }
 
-    return section;
+    carregamentoState.canalizacoesOrdem = keys;
+    carregamentoState.canalizacaoAtual = keys[0];
+    carregamentoState.carretaAtualIdx = 0;
+    carregamentoState.ordemChegada = [];
+
+    showStep(3);
+    renderCarregamento();
+}
+
+function renderCarregamento() {
+    const canal = carregamentoState.canalizacaoAtual;
+    const color = getCanalizacaoColor(canal);
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const carreta = carretas[canal][carretaIdx];
+
+    // Header
+    carregamentoTitle.textContent = `Carregando: ${canal}`;
+    carregamentoTitle.style.color = color.main;
+
+    const totalAlocado = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
+    carretaAtualInfo.innerHTML = `
+        <span class="badge" style="background:${color.main}">${carreta.placa}</span>
+        <span class="pacotes-counter">${totalAlocado.toLocaleString('pt-BR')} pacotes alocados</span>
+    `;
+
+    // Panel title
+    carretaPanelTitle.textContent = `${carreta.placa} (${canal} - Carreta ${carretaIdx + 1})`;
+
+    renderEquipamentosLista(canal);
+    renderCarretaConteudo(canal, carretaIdx);
+    updateCarregamentoButtons();
+}
+
+
+function renderEquipamentosLista(canal) {
+    equipamentosLista.innerHTML = '';
+
+    // Find equipamentos that have HUs for this canalization and haven't been fully allocated
+    const relevantes = equipamentos.filter(eq => {
+        if (!eq.canalizacoes[canal]) return false;
+        // Check if any HU from this equip for this canal is not yet allocated
+        return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+    });
+
+    // Already arrived (in order)
+    const chegaram = carregamentoState.ordemChegada.filter(v => 
+        relevantes.some(eq => eq.veiculo === v)
+    );
+
+    // Not yet arrived
+    const aguardando = relevantes.filter(eq => 
+        !carregamentoState.ordemChegada.includes(eq.veiculo)
+    );
+
+    if (aguardando.length === 0 && relevantes.length === 0) {
+        equipamentosLista.innerHTML = '<p class="all-done">✅ Todos os equipamentos desta canalização já foram alocados!</p>';
+        return;
+    }
+
+    for (const eq of aguardando) {
+        const husCanal = eq.canalizacoes[canal].filter(hu => !isHuAlocada(canal, hu.hu));
+        const totalPcts = husCanal.reduce((s, h) => s + h.pacotes, 0);
+        const icon = getVeiculoIcon(eq.veiculo);
+        const husCount = husCanal.length;
+
+        const item = document.createElement('div');
+        item.className = 'equipamento-item aguardando';
+        item.innerHTML = `
+            <div class="eq-info">
+                <span class="eq-icon">${icon}</span>
+                <span class="eq-veiculo">${eq.veiculo}</span>
+                <span class="eq-detail">${husCount} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+            </div>
+            <button class="btn-chegou">Chegou</button>
+        `;
+        item.querySelector('.btn-chegou').addEventListener('click', () => {
+            equipamentoChegou(eq.veiculo, canal);
+        });
+        equipamentosLista.appendChild(item);
+    }
+}
+
+
+function equipamentoChegou(veiculo, canal) {
+    if (!carregamentoState.ordemChegada.includes(veiculo)) {
+        carregamentoState.ordemChegada.push(veiculo);
+    }
+
+    // Find the equipamento
+    const eq = equipamentos.find(e => e.veiculo === veiculo);
+    if (!eq || !eq.canalizacoes[canal]) return;
+
+    // Allocate all HUs from this equip for this canal to current carreta
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const carreta = carretas[canal][carretaIdx];
+
+    const husToAllocate = eq.canalizacoes[canal].filter(hu => !isHuAlocada(canal, hu.hu));
+    for (const hu of husToAllocate) {
+        carreta.hus.push(hu);
+    }
+
+    // Track equipment order in carreta
+    if (!carreta.ordemEquipamentos.includes(veiculo)) {
+        carreta.ordemEquipamentos.push(veiculo);
+    }
+
+    renderCarregamento();
+}
+
+function isHuAlocada(canal, huId) {
+    if (!carretas[canal]) return false;
+    for (const carreta of carretas[canal]) {
+        if (carreta.hus.some(h => h.hu === huId)) return true;
+    }
+    return false;
+}
+
+function renderCarretaConteudo(canal, carretaIdx) {
+    const carreta = carretas[canal][carretaIdx];
+    carretaConteudo.innerHTML = '';
+
+    if (carreta.hus.length === 0) {
+        carretaConteudo.innerHTML = '<p class="empty-carreta">Nenhuma HU alocada ainda. Marque os equipamentos conforme chegam.</p>';
+        return;
+    }
+
+    // Group by equipment
+    const byEquip = {};
+    for (const hu of carreta.hus) {
+        const v = hu.veiculo || 'SEM_VEICULO';
+        if (!byEquip[v]) byEquip[v] = [];
+        byEquip[v].push(hu);
+    }
+
+    let ordem = 1;
+    for (const v of carreta.ordemEquipamentos) {
+        if (!byEquip[v]) continue;
+        const hus = byEquip[v];
+        const totalPcts = hus.reduce((s, h) => s + h.pacotes, 0);
+        const icon = getVeiculoIcon(v);
+
+        const group = document.createElement('div');
+        group.className = 'carreta-equip-group';
+        group.innerHTML = `
+            <div class="equip-group-header">
+                <span>${ordem}º ${icon} ${v}</span>
+                <span>${hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+            </div>
+        `;
+        carretaConteudo.appendChild(group);
+        ordem++;
+    }
+
+    // Total
+    const totalAll = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
+    const totalDiv = document.createElement('div');
+    totalDiv.className = 'carreta-total';
+    totalDiv.innerHTML = `<strong>Total: ${carreta.hus.length} HUs · ${totalAll.toLocaleString('pt-BR')} pacotes</strong>`;
+    carretaConteudo.appendChild(totalDiv);
+}
+
+
+function updateCarregamentoButtons() {
+    const canal = carregamentoState.canalizacaoAtual;
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const carreta = carretas[canal][carretaIdx];
+    const totalCarretas = carretas[canal].length;
+
+    // Show fechar if there are more carretas and this one has HUs
+    const hasMore = carretaIdx < totalCarretas - 1;
+    btnFecharCarreta.style.display = (hasMore && carreta.hus.length > 0) ? 'inline-block' : 'none';
+
+    // Show expedir if carreta has HUs
+    btnExpedirCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
+
+    // If this is the last carreta, change fechar to "Adicionar Carreta Extra"
+    if (!hasMore && carreta.hus.length > 0) {
+        btnFecharCarreta.style.display = 'inline-block';
+        btnFecharCarreta.textContent = '➕ Adicionar Carreta Extra e Fechar Atual';
+    } else {
+        btnFecharCarreta.textContent = '🔒 Fechar Carreta e Abrir Próxima';
+    }
+}
+
+function fecharCarretaAtual() {
+    const canal = carregamentoState.canalizacaoAtual;
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+    const totalCarretas = carretas[canal].length;
+
+    carretas[canal][carretaIdx].fechada = true;
+
+    if (carretaIdx >= totalCarretas - 1) {
+        // Add extra carreta
+        carretas[canal].push({
+            placa: `${canal} Extra ${totalCarretas - 1}`,
+            hus: [],
+            expedida: false,
+            fechada: false,
+            ordemEquipamentos: []
+        });
+    }
+
+    carregamentoState.carretaAtualIdx++;
+    renderCarregamento();
+}
+
+function expedirCarretaAtual() {
+    const canal = carregamentoState.canalizacaoAtual;
+    const carretaIdx = carregamentoState.carretaAtualIdx;
+
+    carretas[canal][carretaIdx].expedida = true;
+    carretas[canal][carretaIdx].fechada = true;
+
+    // Check if there's a next carreta or next canalization
+    const hasMoreHUs = equipamentos.some(eq => {
+        if (!eq.canalizacoes[canal]) return false;
+        return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+    });
+
+    if (hasMoreHUs) {
+        // Need to move to next carreta
+        const totalCarretas = carretas[canal].length;
+        if (carretaIdx >= totalCarretas - 1) {
+            carretas[canal].push({
+                placa: `${canal} Extra ${totalCarretas}`,
+                hus: [],
+                expedida: false,
+                fechada: false,
+                ordemEquipamentos: []
+            });
+        }
+        carregamentoState.carretaAtualIdx++;
+        renderCarregamento();
+    } else {
+        // Move to next canalization or finish
+        moveToNextCanalizacao();
+    }
+
+    // Show expedida section
+    renderExpedidas();
+    showStep(4);
+}
+
+
+function moveToNextCanalizacao() {
+    const keys = carregamentoState.canalizacoesOrdem;
+    const currentIdx = keys.indexOf(carregamentoState.canalizacaoAtual);
+
+    if (currentIdx < keys.length - 1) {
+        carregamentoState.canalizacaoAtual = keys[currentIdx + 1];
+        carregamentoState.carretaAtualIdx = 0;
+    }
+    // If last canalization, stay — user will see "all done"
 }
 
 // ============================================================
-// Print Functions
+// STEP 4: Expedidas - Render and Print
 // ============================================================
-function printSingle(key) {
-    // Mark all sections, only show the target one
-    document.body.classList.add('print-single');
-    const sections = document.querySelectorAll('.canalizacao-section');
+function renderExpedidas() {
+    carretasExpedidas.innerHTML = '';
+
+    for (const canal of Object.keys(carretas)) {
+        const color = getCanalizacaoColor(canal);
+        for (let i = 0; i < carretas[canal].length; i++) {
+            const carreta = carretas[canal][i];
+            if (!carreta.expedida) continue;
+
+            const section = document.createElement('div');
+            section.className = 'carreta-expedida';
+            section.style.borderColor = color.main;
+            section.dataset.canal = canal;
+            section.dataset.idx = i;
+
+            const totalPcts = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'carreta-expedida-header';
+            header.style.background = color.main;
+            header.innerHTML = `
+                <h3>${canal} — ${carreta.placa}</h3>
+                <span>${carreta.hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pacotes</span>
+                <span>Equipamentos: ${carreta.ordemEquipamentos.map((v, idx) => `${idx+1}º ${getVeiculoIcon(v)} ${v}`).join(' | ')}</span>
+            `;
+            section.appendChild(header);
+
+            // QR Grid
+            const grid = document.createElement('div');
+            grid.className = 'qr-grid';
+            for (const hu of carreta.hus) {
+                const card = createQRCard(hu, color);
+                grid.appendChild(card);
+            }
+            section.appendChild(grid);
+
+            // Print button
+            const printBtn = document.createElement('button');
+            printBtn.className = 'btn btn-primary btn-print-carreta';
+            printBtn.textContent = `🖨️ Imprimir ${carreta.placa}`;
+            printBtn.addEventListener('click', () => printCarreta(canal, i));
+            section.appendChild(printBtn);
+
+            carretasExpedidas.appendChild(section);
+        }
+    }
+
+    // Check if all done
+    const allCanaisProcessed = Object.keys(carretas).every(canal => {
+        const allHUsAlocadas = !equipamentos.some(eq => {
+            if (!eq.canalizacoes[canal]) return false;
+            return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
+        });
+        return allHUsAlocadas;
+    });
+
+    if (!allCanaisProcessed) {
+        const backBtn = document.createElement('button');
+        backBtn.className = 'btn btn-primary';
+        backBtn.textContent = '← Continuar Carregamento';
+        backBtn.addEventListener('click', () => {
+            showStep(3);
+            renderCarregamento();
+        });
+        carretasExpedidas.appendChild(backBtn);
+    }
+}
+
+
+function createQRCard(item, color) {
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    card.style.borderColor = color.border;
+
+    const canvas = document.createElement('canvas');
+    card.appendChild(canvas);
+
+    try {
+        new QRious({
+            element: canvas,
+            value: item.hu,
+            size: 180,
+            foreground: '#000000',
+            background: '#ffffff',
+            level: 'M'
+        });
+    } catch (err) {
+        console.error('Erro ao gerar QR Code:', err);
+        canvas.style.display = 'none';
+        const errorMsg = document.createElement('div');
+        errorMsg.textContent = 'Erro no QR';
+        errorMsg.style.color = '#e74c3c';
+        card.appendChild(errorMsg);
+    }
+
+    const huLabel = document.createElement('div');
+    huLabel.className = 'qr-hu-number';
+    huLabel.textContent = item.hu;
+    card.appendChild(huLabel);
+
+    const pacotesLabel = document.createElement('div');
+    pacotesLabel.className = 'qr-pacotes';
+    pacotesLabel.textContent = `${item.pacotes} pacotes`;
+    card.appendChild(pacotesLabel);
+
+    if (item.veiculo) {
+        const veiculoLabel = document.createElement('div');
+        veiculoLabel.className = 'qr-veiculo';
+        const icon = getVeiculoIcon(item.veiculo);
+        veiculoLabel.textContent = `${icon} ${item.veiculo}`;
+        card.appendChild(veiculoLabel);
+    }
+
+    const canalizacaoLabel = document.createElement('div');
+    canalizacaoLabel.className = 'qr-canalizacao';
+    canalizacaoLabel.style.background = color.main;
+    canalizacaoLabel.textContent = item.canalizacao;
+    card.appendChild(canalizacaoLabel);
+
+    return card;
+}
+
+
+// ============================================================
+// Print per Carreta
+// ============================================================
+function printCarreta(canal, idx) {
+    const sections = document.querySelectorAll('.carreta-expedida');
+    document.body.classList.add('print-single-carreta');
     sections.forEach(s => {
-        if (s.dataset.canalizacao === key) {
+        if (s.dataset.canal === canal && parseInt(s.dataset.idx) === idx) {
             s.classList.add('print-visible');
         } else {
             s.classList.remove('print-visible');
@@ -395,7 +736,7 @@ function printSingle(key) {
     });
     window.print();
     setTimeout(() => {
-        document.body.classList.remove('print-single');
+        document.body.classList.remove('print-single-carreta');
         sections.forEach(s => s.classList.remove('print-visible'));
     }, 500);
 }
@@ -409,19 +750,27 @@ function resetAll() {
     fileInfo.style.display = 'none';
     loading.style.display = 'none';
 
-    summarySection.style.display = 'none';
-    summaryCards.innerHTML = '';
-    actionsContainer.innerHTML = '';
-    canalizacoesContainer.innerHTML = '';
-
     parsedData = {};
+    equipamentos = [];
+    carretas = {};
+    carregamentoState = {
+        canalizacaoAtual: null,
+        carretaAtualIdx: 0,
+        ordemChegada: [],
+        canalizacoesOrdem: [],
+    };
     extraColorIndex = 0;
 
-    // Reset dynamic colors (keep predefined ones)
     const predefined = ['SAL', 'SSE', 'JPA', 'SNR', 'PRN'];
     for (const key of Object.keys(CANALIZACAO_COLORS)) {
-        if (!predefined.includes(key)) {
-            delete CANALIZACAO_COLORS[key];
-        }
+        if (!predefined.includes(key)) delete CANALIZACAO_COLORS[key];
     }
+
+    summaryCards.innerHTML = '';
+    carretasConfig.innerHTML = '';
+    equipamentosLista.innerHTML = '';
+    carretaConteudo.innerHTML = '';
+    carretasExpedidas.innerHTML = '';
+
+    showStep(1);
 }
