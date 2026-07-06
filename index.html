@@ -7,6 +7,25 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script>
+        // Disable right-click context menu
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+        // Disable keyboard shortcuts for dev tools
+        document.addEventListener('keydown', function(e) {
+            // F12
+            if (e.key === 'F12') { e.preventDefault(); return false; }
+            // Ctrl+Shift+I / Cmd+Opt+I (Inspector)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') { e.preventDefault(); return false; }
+            // Ctrl+Shift+J / Cmd+Opt+J (Console)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') { e.preventDefault(); return false; }
+            // Ctrl+Shift+C / Cmd+Opt+C (Element picker)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') { e.preventDefault(); return false; }
+            // Ctrl+U / Cmd+U (View source)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); return false; }
+            // Ctrl+S / Cmd+S (Save page)
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); return false; }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
