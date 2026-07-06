@@ -159,25 +159,46 @@ async function processFile(file) {
 // ============================================================
 function parseRomaneios(pagesText) {
     const result = {};
+
+    // First pass: identify multi-page romaneios and group pages together
+    // Pages that are continuations (pag 2/2) don't have metadata,
+    // so we need to carry over metadata from the first page
+    let currentMeta = null;
+
     for (const pageText of pagesText) {
-        const idMatch = pageText.match(/ID\s+(\d{13,19})/);
-        const romaneioId = idMatch ? idMatch[1] : '';
+        // Check if this page has its own metadata (first page of a romaneio)
+        const hasMetadata = /Ve[ií]culo:/i.test(pageText);
 
-        const veiculoMatch = pageText.match(/Ve[ií]culo:\s*([^\s]+(?:\s+[^\s]+)?(?:\s+[^\s]+)?)/i);
-        let veiculo = veiculoMatch ? veiculoMatch[1].trim() : '';
-        veiculo = veiculo.replace(/Doca:.*/, '').trim();
+        if (hasMetadata) {
+            // Extract metadata
+            const idMatch = pageText.match(/ID\s+(\d{13,19})/);
+            const romaneioId = idMatch ? idMatch[1] : '';
 
-        const lacreMatch = pageText.match(/Lacre:\s*([^\n]+?)(?:\s+Destino|\s+$)/i);
-        const lacre = lacreMatch ? lacreMatch[1].trim() : '';
+            const veiculoMatch = pageText.match(/Ve[ií]culo:\s*([^\s]+(?:\s+[^\s]+)?(?:\s+[^\s]+)?)/i);
+            let veiculo = veiculoMatch ? veiculoMatch[1].trim() : '';
+            // Clean up: remove Doca: suffix and any JSON garbage
+            veiculo = veiculo.replace(/Doca:.*/, '').trim();
+            veiculo = veiculo.replace(/\{.*$/, '').trim();
+            // Also remove trailing non-alphanumeric (like quotes from JSON)
+            veiculo = veiculo.replace(/[^a-zA-Z0-9\s]$/, '').trim();
 
-        const docaMatch = pageText.match(/Doca:\s*(Doca\s*\d+)/i);
-        const doca = docaMatch ? docaMatch[1].trim() : '';
+            const lacreMatch = pageText.match(/Lacre:\s*([^\n]+?)(?:\s+Destino|\s+$)/i);
+            const lacre = lacreMatch ? lacreMatch[1].trim() : '';
 
-        const operadorMatch = pageText.match(/Operador:\s*(\S+)/i);
-        const operador = operadorMatch ? operadorMatch[1].trim() : '';
+            const docaMatch = pageText.match(/Doca:\s*(Doca\s*\d+)/i);
+            const doca = docaMatch ? docaMatch[1].trim() : '';
 
-        const inicioMatch = pageText.match(/In[ií]cio:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/i);
-        const horario = inicioMatch ? inicioMatch[1] : '';
+            const operadorMatch = pageText.match(/Operador:\s*(\S+)/i);
+            const operador = operadorMatch ? operadorMatch[1].trim() : '';
+
+            const inicioMatch = pageText.match(/In[ií]cio:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/i);
+            const horario = inicioMatch ? inicioMatch[1] : '';
+
+            currentMeta = { romaneioId, veiculo, lacre, doca, operador, horario };
+        }
+        // If no metadata found, use currentMeta from previous page (continuation)
+
+        const meta = currentMeta || { romaneioId: '', veiculo: '', lacre: '', doca: '', operador: '', horario: '' };
 
         const containerPattern = /(\d{13,19})\s*(?:\[master\])?\s+(\d+)\s+([A-Z]{2,10}\d*_[A-Z0-9]+)/gi;
         let match;
@@ -185,10 +206,17 @@ function parseRomaneios(pagesText) {
             const hu = match[1];
             const pacotes = parseInt(match[2]);
             const canalizacao = match[3].toUpperCase();
-            // Use full canalization name as key (e.g., SAL1_A, XGR2_1A, SSE1_B)
             const canalizacaoKey = canalizacao;
 
-            const entry = { hu, pacotes, canalizacao, canalizacaoKey, veiculo, lacre, doca, operador, horario, romaneioId };
+            const entry = {
+                hu, pacotes, canalizacao, canalizacaoKey,
+                veiculo: meta.veiculo,
+                lacre: meta.lacre,
+                doca: meta.doca,
+                operador: meta.operador,
+                horario: meta.horario,
+                romaneioId: meta.romaneioId
+            };
             if (!result[canalizacaoKey]) result[canalizacaoKey] = [];
             result[canalizacaoKey].push(entry);
         }
@@ -354,11 +382,12 @@ function iniciarCarregamento() {
         carregamentoState.canalizacoesOrdem = keys;
         carregamentoState.canalizacaoAtual = keys[0];
         carregamentoState.carretaAtualIdx = 0;
-        // Each canalization starts in its own group, user can merge
-        carregamentoState.grupos = keys.map(k => [k]); // [[SAL1_A], [SSE1_A], ...]
+        // Each canalization starts as its OWN separate group
+        // User can merge them later via the "+ canal" buttons
+        carregamentoState.grupos = keys.map(k => [k]);
     }
 
-    // Initialize carretas for each group
+    // Initialize carretas for each group (1 empty carreta per group)
     for (const grupo of carregamentoState.grupos) {
         const grupoKey = grupo.join('+');
         if (!carretas[grupoKey]) {
