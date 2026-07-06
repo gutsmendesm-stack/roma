@@ -35,18 +35,17 @@ function getVeiculoIcon(veiculo) {
     return (v.startsWith('PAG') || v.startsWith('PKC')) ? '✈️' : '📥';
 }
 
-
 // ============================================================
 // STATE
 // ============================================================
-let parsedData = {};           // { canalizacaoKey: [entries] }
-let equipamentos = [];         // [{ veiculo, hus: [{...}], canalizacoes: {...} }]
-let carretas = {};             // { canalizacaoKey: [{ placa, hus: [], expedida: false }] }
+let parsedData = {};
+let equipamentos = [];
+let carretas = {};
 let carregamentoState = {
-    canalizacaoAtual: null,     // which canalization is being loaded now
-    carretaAtualIdx: 0,         // index of current carreta being loaded
-    ordemChegada: [],           // equipment arrival order
-    canalizacoesOrdem: [],      // order to load canalizations (SAL first, SSE second, etc)
+    canalizacaoAtual: null,
+    carretaAtualIdx: 0,
+    ordemChegada: [],
+    canalizacoesOrdem: [],
 };
 
 // ============================================================
@@ -69,8 +68,6 @@ const carretasConfig = document.getElementById('carretasConfig');
 const btnIniciarCarregamento = document.getElementById('btnIniciarCarregamento');
 const btnVoltarUpload = document.getElementById('btnVoltarUpload');
 
-
-const carregamentoHeader = document.getElementById('carregamentoHeader');
 const carregamentoTitle = document.getElementById('carregamentoTitle');
 const carretaAtualInfo = document.getElementById('carretaAtualInfo');
 const equipamentosLista = document.getElementById('equipamentosLista');
@@ -106,9 +103,8 @@ btnVoltarUpload.addEventListener('click', () => showStep(1));
 btnFecharCarreta.addEventListener('click', fecharCarretaAtual);
 btnExpedirCarreta.addEventListener('click', expedirCarretaAtual);
 btnVoltarConfig.addEventListener('click', () => showStep(2));
-btnVoltarCarregamento.addEventListener('click', () => showStep(3));
+btnVoltarCarregamento.addEventListener('click', () => { showStep(3); renderCarregamento(); });
 btnNovaOperacao.addEventListener('click', resetAll);
-
 
 // ============================================================
 // Navigation
@@ -156,7 +152,6 @@ async function processFile(file) {
     }
 }
 
-
 // ============================================================
 // PDF Parsing
 // ============================================================
@@ -199,7 +194,6 @@ function parseRomaneios(pagesText) {
     return result;
 }
 
-
 // ============================================================
 // Build Equipamentos - group HUs by vehicle
 // ============================================================
@@ -219,14 +213,14 @@ function buildEquipamentos(data) {
     return Object.values(veiculoMap);
 }
 
+
 // ============================================================
-// STEP 2: Summary + Carreta Config
+// STEP 2: Summary + Carreta Config + QR Codes (all HUs)
 // ============================================================
 function showStep2() {
     showStep(2);
     const keys = Object.keys(parsedData).sort();
 
-    // Summary cards
     let totalHUs = 0, totalPacotes = 0;
     const stats = {};
     for (const key of keys) {
@@ -247,8 +241,7 @@ function showStep2() {
         summaryCards.appendChild(createCard(stats[key].pacotes.toLocaleString('pt-BR'), `Pacotes ${key}`, color.main));
     }
 
-
-    // Carreta config - SAL first, then SSE, then others
+    // Carreta config
     carretasConfig.innerHTML = '';
     const sortedKeys = keys.sort((a, b) => {
         if (a === 'SAL') return -1;
@@ -283,7 +276,6 @@ function showStep2() {
         `;
         carretasConfig.appendChild(section);
 
-        // Add carreta button
         section.querySelector('.btn-add-carreta').addEventListener('click', () => {
             const list = document.getElementById(`carretas-${key}`);
             const count = list.querySelectorAll('.carreta-input-row').length;
@@ -292,11 +284,103 @@ function showStep2() {
             row.innerHTML = `
                 <span class="carreta-label">${key} - Carreta ${count + 1} (extra):</span>
                 <input type="text" placeholder="Placa da carreta" class="input-placa" data-canal="${key}" data-idx="${count}">
-                <button class="btn-remove-carreta" onclick="this.parentElement.remove()">✕</button>
+                <button class="btn-remove-carreta" onclick="this.parentElement.remove()">&#10005;</button>
             `;
             list.appendChild(row);
         });
     }
+
+    // Render ALL QR codes section (for first biping before expedition)
+    renderAllQRCodes(sortedKeys);
+}
+
+function renderAllQRCodes(keys) {
+    const container = document.getElementById('allQrCodesContainer');
+    container.innerHTML = '';
+
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const color = getCanalizacaoColor(key);
+        const items = parsedData[key];
+
+        // Divider between sections
+        if (i > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'section-divider';
+            divider.innerHTML = `&#9888; ACIMA: ${keys[i-1]} &mdash; ABAIXO: ${key} &#9888;`;
+            container.appendChild(divider);
+        }
+
+        const section = document.createElement('section');
+        section.className = 'canalizacao-section';
+        section.style.borderColor = color.main;
+        section.style.background = color.light;
+
+        const header = document.createElement('div');
+        header.className = 'section-header';
+        header.style.borderBottomColor = color.main;
+        header.innerHTML = `
+            <h2 style="color: ${color.main}">CANALIZACAO ${key}</h2>
+            <span class="badge" style="background: ${color.main}">${items.length} HUs</span>
+        `;
+        section.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'qr-grid';
+        for (const item of items) {
+            grid.appendChild(createQRCard(item, color));
+        }
+        section.appendChild(grid);
+        container.appendChild(section);
+    }
+
+    // Print all button
+    const printAllBtn = document.createElement('div');
+    printAllBtn.className = 'print-all-actions';
+    printAllBtn.innerHTML = '';
+    for (const key of keys) {
+        const color = getCanalizacaoColor(key);
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.style.background = color.main;
+        btn.style.color = 'white';
+        btn.textContent = `Imprimir ${key}`;
+        btn.addEventListener('click', () => printCanalizacao(key));
+        printAllBtn.appendChild(btn);
+    }
+    if (keys.length > 1) {
+        const btnAll = document.createElement('button');
+        btnAll.className = 'btn';
+        btnAll.style.background = '#2c3e50';
+        btnAll.style.color = 'white';
+        btnAll.textContent = 'Imprimir Tudo';
+        btnAll.addEventListener('click', () => {
+            document.body.classList.remove('print-single-canal');
+            document.body.classList.add('print-all-qr');
+            window.print();
+            setTimeout(() => document.body.classList.remove('print-all-qr'), 500);
+        });
+        printAllBtn.appendChild(btnAll);
+    }
+    container.insertBefore(printAllBtn, container.firstChild);
+}
+
+function printCanalizacao(key) {
+    document.body.classList.add('print-single-canal');
+    const sections = document.querySelectorAll('.canalizacao-section');
+    sections.forEach(s => {
+        const h2 = s.querySelector('h2');
+        if (h2 && h2.textContent.includes(key)) {
+            s.classList.add('print-visible');
+        } else {
+            s.classList.remove('print-visible');
+        }
+    });
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('print-single-canal');
+        sections.forEach(s => s.classList.remove('print-visible'));
+    }, 500);
 }
 
 function createCard(value, label, color) {
@@ -315,7 +399,6 @@ function createCard(value, label, color) {
 // STEP 3: Carregamento
 // ============================================================
 function iniciarCarregamento() {
-    // Read carreta config from inputs
     const keys = Object.keys(parsedData).sort((a, b) => {
         if (a === 'SAL') return -1;
         if (b === 'SAL') return 1;
@@ -354,7 +437,6 @@ function renderCarregamento() {
     const carretaIdx = carregamentoState.carretaAtualIdx;
     const carreta = carretas[canal][carretaIdx];
 
-    // Header
     carregamentoTitle.textContent = `Carregando: ${canal}`;
     carregamentoTitle.style.color = color.main;
 
@@ -364,7 +446,6 @@ function renderCarregamento() {
         <span class="pacotes-counter">${totalAlocado.toLocaleString('pt-BR')} pacotes alocados</span>
     `;
 
-    // Panel title
     carretaPanelTitle.textContent = `${carreta.placa} (${canal} - Carreta ${carretaIdx + 1})`;
 
     renderEquipamentosLista(canal);
@@ -372,28 +453,15 @@ function renderCarregamento() {
     updateCarregamentoButtons();
 }
 
-
 function renderEquipamentosLista(canal) {
     equipamentosLista.innerHTML = '';
 
-    // Find equipamentos that have HUs for this canalization and haven't been fully allocated
-    const relevantes = equipamentos.filter(eq => {
+    const aguardando = equipamentos.filter(eq => {
         if (!eq.canalizacoes[canal]) return false;
-        // Check if any HU from this equip for this canal is not yet allocated
         return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
     });
 
-    // Already arrived (in order)
-    const chegaram = carregamentoState.ordemChegada.filter(v => 
-        relevantes.some(eq => eq.veiculo === v)
-    );
-
-    // Not yet arrived
-    const aguardando = relevantes.filter(eq => 
-        !carregamentoState.ordemChegada.includes(eq.veiculo)
-    );
-
-    if (aguardando.length === 0 && relevantes.length === 0) {
+    if (aguardando.length === 0) {
         equipamentosLista.innerHTML = '<p class="all-done">✅ Todos os equipamentos desta canalização já foram alocados!</p>';
         return;
     }
@@ -402,7 +470,6 @@ function renderEquipamentosLista(canal) {
         const husCanal = eq.canalizacoes[canal].filter(hu => !isHuAlocada(canal, hu.hu));
         const totalPcts = husCanal.reduce((s, h) => s + h.pacotes, 0);
         const icon = getVeiculoIcon(eq.veiculo);
-        const husCount = husCanal.length;
 
         const item = document.createElement('div');
         item.className = 'equipamento-item aguardando';
@@ -410,7 +477,7 @@ function renderEquipamentosLista(canal) {
             <div class="eq-info">
                 <span class="eq-icon">${icon}</span>
                 <span class="eq-veiculo">${eq.veiculo}</span>
-                <span class="eq-detail">${husCount} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+                <span class="eq-detail">${husCanal.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
             </div>
             <button class="btn-chegou">Chegou</button>
         `;
@@ -421,17 +488,14 @@ function renderEquipamentosLista(canal) {
     }
 }
 
-
 function equipamentoChegou(veiculo, canal) {
     if (!carregamentoState.ordemChegada.includes(veiculo)) {
         carregamentoState.ordemChegada.push(veiculo);
     }
 
-    // Find the equipamento
     const eq = equipamentos.find(e => e.veiculo === veiculo);
     if (!eq || !eq.canalizacoes[canal]) return;
 
-    // Allocate all HUs from this equip for this canal to current carreta
     const carretaIdx = carregamentoState.carretaAtualIdx;
     const carreta = carretas[canal][carretaIdx];
 
@@ -440,7 +504,6 @@ function equipamentoChegou(veiculo, canal) {
         carreta.hus.push(hu);
     }
 
-    // Track equipment order in carreta
     if (!carreta.ordemEquipamentos.includes(veiculo)) {
         carreta.ordemEquipamentos.push(veiculo);
     }
@@ -455,6 +518,7 @@ function isHuAlocada(canal, huId) {
     }
     return false;
 }
+
 
 function renderCarretaConteudo(canal, carretaIdx) {
     const carreta = carretas[canal][carretaIdx];
@@ -486,8 +550,12 @@ function renderCarretaConteudo(canal, carretaIdx) {
             <div class="equip-group-header">
                 <span>${ordem}º ${icon} ${v}</span>
                 <span>${hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+                <button class="btn-remover-equip" title="Remover este equipamento da carreta">&#10005;</button>
             </div>
         `;
+        group.querySelector('.btn-remover-equip').addEventListener('click', () => {
+            removerEquipamentoDaCarreta(v, canal, carretaIdx);
+        });
         carretaConteudo.appendChild(group);
         ordem++;
     }
@@ -500,6 +568,25 @@ function renderCarretaConteudo(canal, carretaIdx) {
     carretaConteudo.appendChild(totalDiv);
 }
 
+function removerEquipamentoDaCarreta(veiculo, canal, carretaIdx) {
+    const carreta = carretas[canal][carretaIdx];
+
+    // Remove all HUs from this equipment
+    carreta.hus = carreta.hus.filter(h => h.veiculo !== veiculo);
+
+    // Remove from order
+    carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => v !== veiculo);
+
+    // Remove from ordemChegada so it goes back to "aguardando"
+    const stillInOtherCarretas = carretas[canal].some((c, idx) => 
+        idx !== carretaIdx && c.hus.some(h => h.veiculo === veiculo)
+    );
+    if (!stillInOtherCarretas) {
+        carregamentoState.ordemChegada = carregamentoState.ordemChegada.filter(v => v !== veiculo);
+    }
+
+    renderCarregamento();
+}
 
 function updateCarregamentoButtons() {
     const canal = carregamentoState.canalizacaoAtual;
@@ -507,14 +594,10 @@ function updateCarregamentoButtons() {
     const carreta = carretas[canal][carretaIdx];
     const totalCarretas = carretas[canal].length;
 
-    // Show fechar if there are more carretas and this one has HUs
     const hasMore = carretaIdx < totalCarretas - 1;
     btnFecharCarreta.style.display = (hasMore && carreta.hus.length > 0) ? 'inline-block' : 'none';
-
-    // Show expedir if carreta has HUs
     btnExpedirCarreta.style.display = carreta.hus.length > 0 ? 'inline-block' : 'none';
 
-    // If this is the last carreta, change fechar to "Adicionar Carreta Extra"
     if (!hasMore && carreta.hus.length > 0) {
         btnFecharCarreta.style.display = 'inline-block';
         btnFecharCarreta.textContent = '➕ Adicionar Carreta Extra e Fechar Atual';
@@ -531,7 +614,6 @@ function fecharCarretaAtual() {
     carretas[canal][carretaIdx].fechada = true;
 
     if (carretaIdx >= totalCarretas - 1) {
-        // Add extra carreta
         carretas[canal].push({
             placa: `${canal} Extra ${totalCarretas - 1}`,
             hus: [],
@@ -552,14 +634,12 @@ function expedirCarretaAtual() {
     carretas[canal][carretaIdx].expedida = true;
     carretas[canal][carretaIdx].fechada = true;
 
-    // Check if there's a next carreta or next canalization
     const hasMoreHUs = equipamentos.some(eq => {
         if (!eq.canalizacoes[canal]) return false;
         return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
     });
 
     if (hasMoreHUs) {
-        // Need to move to next carreta
         const totalCarretas = carretas[canal].length;
         if (carretaIdx >= totalCarretas - 1) {
             carretas[canal].push({
@@ -571,28 +651,23 @@ function expedirCarretaAtual() {
             });
         }
         carregamentoState.carretaAtualIdx++;
-        renderCarregamento();
     } else {
-        // Move to next canalization or finish
         moveToNextCanalizacao();
     }
 
-    // Show expedida section
     renderExpedidas();
     showStep(4);
 }
 
-
 function moveToNextCanalizacao() {
     const keys = carregamentoState.canalizacoesOrdem;
     const currentIdx = keys.indexOf(carregamentoState.canalizacaoAtual);
-
     if (currentIdx < keys.length - 1) {
         carregamentoState.canalizacaoAtual = keys[currentIdx + 1];
         carregamentoState.carretaAtualIdx = 0;
     }
-    // If last canalization, stay — user will see "all done"
 }
+
 
 // ============================================================
 // STEP 4: Expedidas - Render and Print
@@ -614,7 +689,6 @@ function renderExpedidas() {
 
             const totalPcts = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
 
-            // Header
             const header = document.createElement('div');
             header.className = 'carreta-expedida-header';
             header.style.background = color.main;
@@ -625,16 +699,13 @@ function renderExpedidas() {
             `;
             section.appendChild(header);
 
-            // QR Grid
             const grid = document.createElement('div');
             grid.className = 'qr-grid';
             for (const hu of carreta.hus) {
-                const card = createQRCard(hu, color);
-                grid.appendChild(card);
+                grid.appendChild(createQRCard(hu, color));
             }
             section.appendChild(grid);
 
-            // Print button
             const printBtn = document.createElement('button');
             printBtn.className = 'btn btn-primary btn-print-carreta';
             printBtn.textContent = `🖨️ Imprimir ${carreta.placa}`;
@@ -645,27 +716,23 @@ function renderExpedidas() {
         }
     }
 
-    // Check if all done
-    const allCanaisProcessed = Object.keys(carretas).every(canal => {
-        const allHUsAlocadas = !equipamentos.some(eq => {
+    // Back to carregamento button if not all done
+    const allDone = Object.keys(carretas).every(canal => {
+        return !equipamentos.some(eq => {
             if (!eq.canalizacoes[canal]) return false;
             return eq.canalizacoes[canal].some(hu => !isHuAlocada(canal, hu.hu));
         });
-        return allHUsAlocadas;
     });
 
-    if (!allCanaisProcessed) {
+    if (!allDone) {
         const backBtn = document.createElement('button');
         backBtn.className = 'btn btn-primary';
+        backBtn.style.marginTop = '20px';
         backBtn.textContent = '← Continuar Carregamento';
-        backBtn.addEventListener('click', () => {
-            showStep(3);
-            renderCarregamento();
-        });
+        backBtn.addEventListener('click', () => { showStep(3); renderCarregamento(); });
         carretasExpedidas.appendChild(backBtn);
     }
 }
-
 
 function createQRCard(item, color) {
     const card = document.createElement('div');
@@ -686,11 +753,6 @@ function createQRCard(item, color) {
         });
     } catch (err) {
         console.error('Erro ao gerar QR Code:', err);
-        canvas.style.display = 'none';
-        const errorMsg = document.createElement('div');
-        errorMsg.textContent = 'Erro no QR';
-        errorMsg.style.color = '#e74c3c';
-        card.appendChild(errorMsg);
     }
 
     const huLabel = document.createElement('div');
@@ -706,8 +768,7 @@ function createQRCard(item, color) {
     if (item.veiculo) {
         const veiculoLabel = document.createElement('div');
         veiculoLabel.className = 'qr-veiculo';
-        const icon = getVeiculoIcon(item.veiculo);
-        veiculoLabel.textContent = `${icon} ${item.veiculo}`;
+        veiculoLabel.textContent = `${getVeiculoIcon(item.veiculo)} ${item.veiculo}`;
         card.appendChild(veiculoLabel);
     }
 
@@ -720,13 +781,12 @@ function createQRCard(item, color) {
     return card;
 }
 
-
 // ============================================================
-// Print per Carreta
+// Print Functions
 // ============================================================
 function printCarreta(canal, idx) {
-    const sections = document.querySelectorAll('.carreta-expedida');
     document.body.classList.add('print-single-carreta');
+    const sections = document.querySelectorAll('.carreta-expedida');
     sections.forEach(s => {
         if (s.dataset.canal === canal && parseInt(s.dataset.idx) === idx) {
             s.classList.add('print-visible');
@@ -753,12 +813,7 @@ function resetAll() {
     parsedData = {};
     equipamentos = [];
     carretas = {};
-    carregamentoState = {
-        canalizacaoAtual: null,
-        carretaAtualIdx: 0,
-        ordemChegada: [],
-        canalizacoesOrdem: [],
-    };
+    carregamentoState = { canalizacaoAtual: null, carretaAtualIdx: 0, ordemChegada: [], canalizacoesOrdem: [] };
     extraColorIndex = 0;
 
     const predefined = ['SAL', 'SSE', 'JPA', 'SNR', 'PRN'];
@@ -771,6 +826,7 @@ function resetAll() {
     equipamentosLista.innerHTML = '';
     carretaConteudo.innerHTML = '';
     carretasExpedidas.innerHTML = '';
+    document.getElementById('allQrCodesContainer').innerHTML = '';
 
     showStep(1);
 }
