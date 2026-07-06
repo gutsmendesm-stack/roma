@@ -358,10 +358,10 @@ function createCanalizacaoSection(key, items, color) {
         if (item.veiculo) {
             const veiculoLabel = document.createElement('div');
             veiculoLabel.className = 'qr-veiculo';
-            // Identify vehicle type: DNA/FOS = porão, PAG/PKC = lâmina/pallet
+            // Identify vehicle type: PAG/PKC = lâmina/pallet, qualquer outro = porão
             const veiculoUpper = item.veiculo.toUpperCase();
-            const isPorão = veiculoUpper.startsWith('DNA') || veiculoUpper.startsWith('FOS');
-            const icon = isPorão ? '📥' : '✈️';
+            const isLamina = veiculoUpper.startsWith('PAG') || veiculoUpper.startsWith('PKC');
+            const icon = isLamina ? '✈️' : '📥';
             veiculoLabel.textContent = `${icon} ${item.veiculo}`;
             card.appendChild(veiculoLabel);
         }
