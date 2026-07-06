@@ -358,7 +358,11 @@ function createCanalizacaoSection(key, items, color) {
         if (item.veiculo) {
             const veiculoLabel = document.createElement('div');
             veiculoLabel.className = 'qr-veiculo';
-            veiculoLabel.textContent = `🚛 ${item.veiculo}`;
+            // Identify vehicle type: DNA/FOS = porão, PAG/PKC = lâmina/pallet
+            const veiculoUpper = item.veiculo.toUpperCase();
+            const isPorão = veiculoUpper.startsWith('DNA') || veiculoUpper.startsWith('FOS');
+            const icon = isPorão ? '📥' : '✈️';
+            veiculoLabel.textContent = `${icon} ${item.veiculo}`;
             card.appendChild(veiculoLabel);
         }
 
