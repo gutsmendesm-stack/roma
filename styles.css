@@ -1,0 +1,384 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #333;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+header {
+    text-align: center;
+    padding: 30px 0;
+}
+
+header h1 {
+    font-size: 2.2rem;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+}
+
+/* Upload Section */
+.upload-section {
+    margin: 20px 0;
+}
+
+.upload-area {
+    border: 3px dashed #bdc3c7;
+    border-radius: 12px;
+    padding: 50px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+    border-color: #3498db;
+    background: #ebf5fb;
+}
+
+.upload-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+}
+
+.upload-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.upload-hint {
+    font-size: 0.9rem;
+    color: #999;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: #dbeafe;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.btn-clear {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    font-size: 1.1rem;
+    color: #555;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 4px solid #eee;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Summary Section */
+.summary-section {
+    margin: 30px 0;
+    text-align: center;
+}
+
+.summary-section h2 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.summary-cards {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    min-width: 130px;
+}
+
+.card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.card-label {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
+/* Action Buttons */
+.actions {
+    margin-top: 25px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-all {
+    background: #2c3e50;
+    color: white;
+}
+
+/* Canalizacao Sections */
+.canalizacao-section {
+    margin: 40px 0;
+    padding: 30px;
+    border-radius: 12px;
+    border: 3px solid;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid;
+}
+
+.section-header h2 {
+    font-size: 1.8rem;
+}
+
+.badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: white;
+}
+
+/* QR Code Grid */
+.qr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.qr-card {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 2px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.qr-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.qr-card canvas {
+    display: block;
+    margin: 0 auto 10px;
+}
+
+.qr-hu-number {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    word-break: break-all;
+    margin-bottom: 5px;
+}
+
+.qr-pacotes {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+.qr-veiculo {
+    font-size: 0.7rem;
+    color: #555;
+    margin-top: 3px;
+    font-weight: 600;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.qr-canalizacao {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* Section Divider */
+.section-divider {
+    text-align: center;
+    padding: 12px;
+    margin: 10px 0;
+    background: #333;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    letter-spacing: 1px;
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background: white;
+    }
+
+    .upload-section,
+    .summary-section,
+    header {
+        display: none !important;
+    }
+
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .canalizacao-section {
+        page-break-before: always;
+        border: 2px solid #333;
+        margin: 0;
+        padding: 15px;
+    }
+
+    .canalizacao-section:first-of-type {
+        page-break-before: auto;
+    }
+
+    .section-divider {
+        page-break-before: always;
+    }
+
+    .qr-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+
+    .qr-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        padding: 8px;
+        page-break-inside: avoid;
+    }
+
+    .btn, .actions {
+        display: none !important;
+    }
+
+    /* Hide sections based on print class */
+    body.print-single .canalizacao-section {
+        display: none !important;
+    }
+
+    body.print-single .canalizacao-section.print-visible {
+        display: block !important;
+    }
+
+    body.print-single .section-divider {
+        display: none !important;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.6rem;
+    }
+
+    .summary-cards {
+        gap: 10px;
+    }
+
+    .card {
+        padding: 15px 20px;
+        min-width: 100px;
+    }
+
+    .card-value {
+        font-size: 1.5rem;
+    }
+
+    .qr-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+    }
+
+    .section-header h2 {
+        font-size: 1.3rem;
+    }
+}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor de Romaneios</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Leitor de Romaneios</h1>
+            <p class="subtitle">Upload do PDF para extrair HUs e gerar QR Codes separados por canalizacao</p>
+        </header>
+
+        <section class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <p class="upload-text">Arraste o PDF aqui ou clique para selecionar</p>
+                <p class="upload-hint">Aceita arquivos .pdf de romaneios</p>
+                <input type="file" id="fileInput" accept=".pdf" hidden>
+            </div>
+
+            <div class="file-info" id="fileInfo" style="display:none">
+                <span id="fileName"></span>
+                <button class="btn-clear" id="clearFile">&#10005;</button>
+            </div>
+
+            <div class="loading" id="loading" style="display:none">
+                <div class="spinner"></div>
+                <span>Processando PDF...</span>
+            </div>
+        </section>
+
+        <!-- Summary -->
+        <section class="summary-section" id="summarySection" style="display:none">
+            <h2>Resumo Geral</h2>
+            <div class="summary-cards" id="summaryCards"></div>
+            <div class="actions" id="actionsContainer"></div>
+        </section>
+
+        <!-- Canalizacoes dynamically generated -->
+        <div id="canalizacoesContainer"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
