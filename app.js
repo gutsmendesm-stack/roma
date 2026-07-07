@@ -184,7 +184,7 @@ function parseRomaneios(pagesText) {
 
         const meta = currentMeta || { romaneioId: '', veiculo: '', lacre: '', doca: '', operador: '', horario: '' };
 
-        const containerPattern = /(\d{13,19})\s*(?:\[master\])?\s+(\d+)\s+([A-Z]{2,10}\d*_[A-Z0-9]+)/gi;
+        const containerPattern = /(\d{13,19})\s*(?:\[master\])?\s+(\d+)\s+([A-Z][A-Z0-9]{1,10}_[A-Z0-9]+)/gi;
         let match;
         while ((match = containerPattern.exec(pageText)) !== null) {
             const hu = match[1];
