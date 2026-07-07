@@ -1,9 +1,7 @@
-// Configure PDF.js worker
+// PDF.js worker config
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ============================================================
-// COLOR CONFIGURATION - All dynamic, auto-assigned
-// ============================================================
+// Paleta de cores para canalizacoes (atribuicao dinamica)
 const COLOR_PALETTE = [
     { main: '#1a56db', light: '#eff6ff', border: '#93c5fd' },
     { main: '#dc2626', light: '#fef2f2', border: '#fca5a5' },
@@ -28,18 +26,17 @@ function getCanalizacaoColor(key) {
     return canalizacaoColors[key];
 }
 
+// Icone do equipamento: lamina (PAG/PKC) ou porao (outros)
 function getVeiculoIcon(veiculo) {
     if (!veiculo) return '📦';
     const v = veiculo.toUpperCase();
     return (v.startsWith('PAG') || v.startsWith('PKC')) ? '✈️' : '📥';
 }
 
-// ============================================================
-// STATE
-// ============================================================
+// Estado global da aplicacao
 let parsedData = {};
 let equipamentos = [];
-let carretas = {};          // { canalizacaoKey: [{ placa, hus: [], expedida, fechada, ordemEquipamentos }] }
+let carretas = {};
 let carregamentoState = {
     canalizacaoAtual: null,
     carretaAtualIdx: 0,
@@ -47,9 +44,7 @@ let carregamentoState = {
     canalizacoesOrdem: [],
 };
 
-// ============================================================
-// DOM Elements
-// ============================================================
+// Elementos do DOM
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const fileInfo = document.getElementById('fileInfo');
@@ -82,9 +77,7 @@ const carretasExpedidas = document.getElementById('carretasExpedidas');
 const btnVoltarCarregamento = document.getElementById('btnVoltarCarregamento');
 const btnNovaOperacao = document.getElementById('btnNovaOperacao');
 
-// ============================================================
-// Event Listeners
-// ============================================================
+// Eventos
 uploadArea.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileSelect);
 clearFile.addEventListener('click', resetAll);
@@ -108,9 +101,7 @@ btnVerExpedidas.addEventListener('click', () => { renderExpedidas(); showStep(4)
 btnVoltarCarregamento.addEventListener('click', () => { showStep(3); renderCarregamento(); });
 btnNovaOperacao.addEventListener('click', resetAll);
 
-// ============================================================
-// Navigation - preserves state between steps
-// ============================================================
+// Navegacao entre etapas (preserva estado ao voltar/avancar)
 function showStep(n) {
     step1.style.display = n === 1 ? 'block' : 'none';
     step2.style.display = n === 2 ? 'block' : 'none';
@@ -118,9 +109,7 @@ function showStep(n) {
     step4.style.display = n === 4 ? 'block' : 'none';
 }
 
-// ============================================================
-// File Processing
-// ============================================================
+// Upload e processamento do PDF
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) processFile(file);
@@ -154,32 +143,26 @@ async function processFile(file) {
     }
 }
 
-// ============================================================
-// PDF Parsing
-// ============================================================
+// Parsing do PDF - extrai HUs, canalizacoes e metadados
 function parseRomaneios(pagesText) {
     const result = {};
 
-    // First pass: identify multi-page romaneios and group pages together
-    // Pages that are continuations (pag 2/2) don't have metadata,
-    // so we need to carry over metadata from the first page
+    // Paginas de continuacao (pag 2/2) nao possuem metadados,
+    // entao herda do romaneio anterior
     let currentMeta = null;
 
     for (const pageText of pagesText) {
-        // Check if this page has its own metadata (first page of a romaneio)
+        // Verifica se a pagina tem metadados (primeira pagina do romaneio)
         const hasMetadata = /Ve[ií]culo:/i.test(pageText);
 
         if (hasMetadata) {
-            // Extract metadata
             const idMatch = pageText.match(/ID\s+(\d{13,19})/);
             const romaneioId = idMatch ? idMatch[1] : '';
 
             const veiculoMatch = pageText.match(/Ve[ií]culo:\s*([^\s]+(?:\s+[^\s]+)?(?:\s+[^\s]+)?)/i);
             let veiculo = veiculoMatch ? veiculoMatch[1].trim() : '';
-            // Clean up: remove Doca: suffix
             veiculo = veiculo.replace(/Doca:.*/, '').trim();
-            // Cut at the first invalid character (anything that's not letter, number, or space)
-            // Valid vehicle names: PAG 00241 G3, DNA 5779 C 5, FOS, PKC 000028 G3
+            // Limpa caracteres invalidos do nome do veiculo (lixo do sistema)
             const cleanMatch = veiculo.match(/^[a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*/);
             veiculo = cleanMatch ? cleanMatch[0].trim() : veiculo;
 
@@ -197,7 +180,7 @@ function parseRomaneios(pagesText) {
 
             currentMeta = { romaneioId, veiculo, lacre, doca, operador, horario };
         }
-        // If no metadata found, use currentMeta from previous page (continuation)
+        // Pagina de continuacao usa metadados do romaneio anterior
 
         const meta = currentMeta || { romaneioId: '', veiculo: '', lacre: '', doca: '', operador: '', horario: '' };
 
@@ -225,9 +208,7 @@ function parseRomaneios(pagesText) {
     return result;
 }
 
-// ============================================================
-// Build Equipamentos - group HUs by vehicle
-// ============================================================
+// Agrupa HUs por equipamento/veiculo
 function buildEquipamentos(data) {
     const veiculoMap = {};
     for (const key of Object.keys(data)) {
@@ -245,9 +226,7 @@ function buildEquipamentos(data) {
 }
 
 
-// ============================================================
-// STEP 2: Summary + All QR Codes
-// ============================================================
+// Resumo geral e QR Codes para bipagem inicial
 function showStep2() {
     showStep(2);
     const keys = Object.keys(parsedData).sort();
@@ -373,16 +352,13 @@ function createCard(value, label, color) {
 }
 
 
-// ============================================================
-// STEP 3: Carregamento - Dynamic carretas
-// ============================================================
+// Tela de carregamento - carretas dinamicas
 function iniciarCarregamento() {
     const keys = Object.keys(parsedData).sort();
 
     if (carregamentoState.canalizacoesOrdem.length === 0) {
         carregamentoState.canalizacoesOrdem = keys;
         carregamentoState.carretaAtualIdx = 0;
-        // Start with empty group - user adds canalizacoes via buttons
         carregamentoState.grupoAtual = [];
     }
 
@@ -731,9 +707,7 @@ function expedirCarretaAtual() {
 }
 
 
-// ============================================================
-// STEP 4: Expedidas - Render and Print
-// ============================================================
+// Carretas expedidas - visualizacao e impressao
 function renderExpedidas() {
     carretasExpedidas.innerHTML = '';
 
@@ -843,9 +817,7 @@ function createQRCard(item, color) {
     return card;
 }
 
-// ============================================================
-// Print Functions
-// ============================================================
+// Impressao
 function printCarreta(idx) {
     document.body.classList.add('print-single-carreta');
     const sections = document.querySelectorAll('.carreta-expedida');
@@ -863,9 +835,7 @@ function printCarreta(idx) {
     }, 500);
 }
 
-// ============================================================
-// Reset
-// ============================================================
+// Reset da aplicacao
 function resetAll() {
     fileInput.value = '';
     uploadArea.style.display = 'block';
