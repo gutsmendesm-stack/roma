@@ -445,10 +445,10 @@ function buildEquipamentos(data) {
     const veiculoMap = {};
     for (const key of Object.keys(data)) {
         for (const entry of data[key]) {
-            // Normaliza: remove espaços extras, uppercase
-            const vid = (entry.veiculo || 'SEM_VEICULO').trim().replace(/\s+/g, ' ').toUpperCase();
+            // Normaliza: trim, uppercase, remove espaços extras, normaliza zeros a esquerda
+            const vid = normalizarNomeVeiculo(entry.veiculo);
             if (!veiculoMap[vid]) {
-                veiculoMap[vid] = { veiculo: entry.veiculo ? vid : '', hus: [], canalizacoes: {} };
+                veiculoMap[vid] = { veiculo: vid !== 'SEM_VEICULO' ? vid : '', hus: [], canalizacoes: {} };
             }
             veiculoMap[vid].hus.push(entry);
             if (!veiculoMap[vid].canalizacoes[key]) veiculoMap[vid].canalizacoes[key] = [];
@@ -456,6 +456,18 @@ function buildEquipamentos(data) {
         }
     }
     return Object.values(veiculoMap);
+}
+
+// Normaliza nome do veiculo para agrupar corretamente
+// Ex: "PAG 000266 G3" e "PAG 00266 G3" viram "PAG 266 G3"
+// Remove zeros a esquerda da parte numerica
+function normalizarNomeVeiculo(veiculo) {
+    if (!veiculo) return 'SEM_VEICULO';
+    let nome = veiculo.trim().replace(/\s+/g, ' ').toUpperCase();
+    // Remove zeros a esquerda de sequencias numericas
+    // "PAG 00044 G3" -> "PAG 44 G3", "PAG 000266 G3" -> "PAG 266 G3"
+    nome = nome.replace(/\b0+(\d+)/g, '$1');
+    return nome;
 }
 
 // ============================================================
@@ -554,7 +566,7 @@ function renderRecebimento() {
 }
 
 function criarItemRecebimento(eq) {
-    const vid = eq.veiculo || 'SEM_VEICULO';
+    const vid = normalizarNomeVeiculo(eq.veiculo);
     const icon = getVeiculoIcon(eq.veiculo);
     const totalHUs = eq.hus.length;
     const totalPcts = eq.hus.reduce((s, h) => s + h.pacotes, 0);
@@ -613,7 +625,7 @@ function renderHistoricoRecebimento(container) {
     }
 
     for (const [vid, info] of chegados) {
-        const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
+        const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
         const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
         const hora = info.hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const data = info.hora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -628,11 +640,11 @@ function renderHistoricoRecebimento(container) {
 // FINALIZAR RECEBIMENTO - verifica nao-recebidos e gera PDF
 // ============================================================
 function finalizarRecebimento() {
-    const todosVeiculos = equipamentos.map(e => e.veiculo || 'SEM_VEICULO');
+    const todosVeiculos = equipamentos.map(e => normalizarNomeVeiculo(e.veiculo));
     const naoRecebidos = todosVeiculos.filter(v => !recebimentoState.chegados[v]);
 
     if (naoRecebidos.length > 0) {
-        const listaStr = naoRecebidos.map(v => `• ${getVeiculoIcon(equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === v)?.veiculo)} ${v}`).join('<br>');
+        const listaStr = naoRecebidos.map(v => `• ${getVeiculoIcon(equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === v)?.veiculo)} ${v}`).join('<br>');
         showModal(
             'Equipamentos Não Recebidos',
             `Os seguintes equipamentos <strong>não foram registrados</strong>:<br><br>${listaStr}<br><br>Confirma que eles realmente não chegaram?`,
@@ -668,7 +680,7 @@ function gerarPDFResumoRecebimento() {
         .sort((a, b) => a[1].ordem - b[1].ordem);
 
     for (const [vid, info] of chegados) {
-        const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
+        const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
         const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
         const tipo = eq && isLamina(eq.veiculo) ? 'Lâmina' : 'Porão';
         const totalHUs = eq ? eq.hus.length : 0;
@@ -680,13 +692,13 @@ function gerarPDFResumoRecebimento() {
     html += `</tbody></table>`;
 
     // Nao recebidos
-    const todosVeiculos = equipamentos.map(e => e.veiculo || 'SEM_VEICULO');
+    const todosVeiculos = equipamentos.map(e => normalizarNomeVeiculo(e.veiculo));
     const naoRecebidos = todosVeiculos.filter(v => !recebimentoState.chegados[v]);
 
     if (naoRecebidos.length > 0) {
         html += `<h3 class="resumo-alerta">⚠️ Equipamentos NÃO Recebidos (${naoRecebidos.length})</h3><ul class="resumo-nao-recebidos">`;
         for (const v of naoRecebidos) {
-            const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === v);
+            const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === v);
             const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
             html += `<li>${icon} <strong>${v}</strong></li>`;
         }
@@ -1392,7 +1404,7 @@ function imprimirEquipamentoPDF(vid) {
 
 // Impressao por equipamento (Zebra EPL)
 function imprimirEquipamentoZebra(vid) {
-    const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
+    const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
     if (!eq) return;
     gerarEPLeImprimir(eq.hus);
 }
