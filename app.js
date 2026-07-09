@@ -563,7 +563,7 @@ function criarItemRecebimento(eq) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
             </div>
-            <span class="recebido-hora">✅ ${data} ${hora}</span>
+            <span class="recebido-hora">✅ Chegou ${data} ${hora}</span>
         `;
     } else {
         item.innerHTML = `
@@ -572,7 +572,7 @@ function criarItemRecebimento(eq) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
             </div>
-            <button class="btn-chegou">Chegou</button>
+            <button class="btn-chegou">Registrar Recebimento</button>
         `;
         item.querySelector('.btn-chegou').addEventListener('click', () => {
             registrarChegada(vid);
@@ -608,7 +608,7 @@ function renderHistoricoRecebimento(container) {
         const data = info.hora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const div = document.createElement('div');
         div.className = 'historico-item';
-        div.innerHTML = `<span>${info.ordem}º ${icon} <strong>${vid}</strong></span><span>Chegou em ${data} às ${hora}</span>`;
+        div.innerHTML = `<span>${info.ordem}º ${icon} <strong>${vid}</strong></span><span>Chegou ${data} às ${hora}</span>`;
         container.appendChild(div);
     }
 }
