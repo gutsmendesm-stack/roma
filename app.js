@@ -233,10 +233,12 @@ async function processFile(file) {
         // Marca que a operacao comecou (beforeunload ativo)
         operacaoIniciada = true;
 
-        // Validacao de destino (Item 1)
-        if (!validarDestino()) return;
-        // Validacao de data (Item 2)
-        if (!validarData()) return;
+        // Validacao de destino (Item 1) - pode ser Promise agora
+        const destinoOk = await validarDestino();
+        if (!destinoOk) return;
+        // Validacao de data (Item 2) - pode ser Promise agora
+        const dataOk = await validarData();
+        if (!dataOk) return;
 
         // Sucesso - vai pro hub
         showHub();
@@ -268,18 +270,19 @@ function extractMeta(pagesText) {
 }
 
 function validarDestino() {
-    if (!parsedMeta.destino) return true; // sem destino no PDF, segue normal
+    if (!parsedMeta.destino) return true;
     if (!baseSelecionada) return true;
 
-    // Compara destino com base selecionada
     if (!parsedMeta.destino.includes(baseSelecionada) && parsedMeta.destino !== baseSelecionada) {
-        const continuar = confirm(
-            `⚠️ O romaneio inserido é do airhub ${parsedMeta.destino} mas você selecionou ${baseSelecionada}.\n\nDeseja continuar mesmo assim?`
-        );
-        if (!continuar) {
-            resetUpload();
-            return false;
-        }
+        return new Promise((resolve) => {
+            showModal(
+                'Base Diferente Detectada',
+                `O romaneio inserido é do airhub <strong>${parsedMeta.destino}</strong>, mas você selecionou <strong>${baseSelecionada}</strong>.<br><br>Deseja continuar mesmo assim?`,
+                'warning',
+                () => resolve(true),
+                () => { resetUpload(); resolve(false); }
+            );
+        });
     }
     return true;
 }
@@ -288,9 +291,8 @@ function validarDestino() {
 // VALIDACAO DE DATA (Item 2)
 // ============================================================
 function validarData() {
-    if (!parsedMeta.dataInicio) return true; // sem data no PDF, segue normal
+    if (!parsedMeta.dataInicio) return true;
 
-    // Parseia DD/MM/YYYY
     const parts = parsedMeta.dataInicio.split('/');
     if (parts.length !== 3) return true;
     const dataRomaneio = new Date(parts[2], parts[1] - 1, parts[0]);
@@ -299,15 +301,71 @@ function validarData() {
     dataRomaneio.setHours(0, 0, 0, 0);
 
     if (dataRomaneio < hoje) {
-        const continuar = confirm(
-            `⚠️ Este romaneio é do dia ${parsedMeta.dataInicio}.\n\nDeseja prosseguir mesmo assim?`
-        );
-        if (!continuar) {
-            resetUpload();
-            return false;
-        }
+        return new Promise((resolve) => {
+            showModal(
+                'Romaneio de Data Anterior',
+                `Este romaneio é do dia <strong>${parsedMeta.dataInicio}</strong>.<br><br>Deseja prosseguir mesmo assim?`,
+                'warning',
+                () => resolve(true),
+                () => { resetUpload(); resolve(false); }
+            );
+        });
     }
     return true;
+}
+
+// ============================================================
+// MODAL CUSTOMIZADO (substituindo confirm/alert nativo)
+// ============================================================
+function showModal(titulo, mensagem, tipo, onConfirm, onCancel) {
+    // Remove modal anterior se existir
+    const existing = document.getElementById('customModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'customModal';
+    overlay.className = 'modal-overlay';
+
+    const iconMap = {
+        warning: '⚠️',
+        error: '❌',
+        success: '✅',
+        info: 'ℹ️'
+    };
+
+    overlay.innerHTML = `
+        <div class="modal-box">
+            <div class="modal-icon">${iconMap[tipo] || '⚠️'}</div>
+            <h2 class="modal-title">${titulo}</h2>
+            <p class="modal-message">${mensagem}</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary modal-btn-confirm">Sim, continuar</button>
+                <button class="btn btn-secondary modal-btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.modal-btn-confirm').addEventListener('click', () => {
+        overlay.remove();
+        if (onConfirm) onConfirm();
+    });
+
+    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
+        overlay.remove();
+        if (onCancel) onCancel();
+    });
+
+    // Fecha com ESC
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+            if (onCancel) onCancel();
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
 
 
@@ -468,6 +526,21 @@ function renderRecebimento() {
 
     // Historico de chegada
     renderHistoricoRecebimento(historicoDiv);
+
+    // Botao finalizar recebimento (aparece se pelo menos 1 foi recebido)
+    let btnFinalizar = document.getElementById('btnFinalizarRecebimento');
+    if (!btnFinalizar) {
+        btnFinalizar = document.createElement('button');
+        btnFinalizar.id = 'btnFinalizarRecebimento';
+        btnFinalizar.className = 'btn btn-success';
+        btnFinalizar.textContent = '✅ Finalizar Recebimento';
+        btnFinalizar.style.marginTop = '20px';
+        btnFinalizar.addEventListener('click', finalizarRecebimento);
+        document.getElementById('recebimentoHistorico').after(btnFinalizar);
+    }
+    const totalChegados = Object.keys(recebimentoState.chegados).length;
+    btnFinalizar.style.display = totalChegados > 0 ? 'block' : 'none';
+    btnFinalizar.style.margin = '20px auto';
 }
 
 function criarItemRecebimento(eq) {
@@ -483,13 +556,14 @@ function criarItemRecebimento(eq) {
 
     if (jaChegou) {
         const hora = jaChegou.hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const data = jaChegou.hora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         item.innerHTML = `
             <div class="eq-info">
                 <span class="eq-icon">${icon}</span>
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
             </div>
-            <span class="recebido-hora">✅ ${hora}</span>
+            <span class="recebido-hora">✅ ${data} ${hora}</span>
         `;
     } else {
         item.innerHTML = `
@@ -498,7 +572,7 @@ function criarItemRecebimento(eq) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
             </div>
-            <button class="btn-chegou">Registrar Chegada</button>
+            <button class="btn-chegou">Chegou</button>
         `;
         item.querySelector('.btn-chegou').addEventListener('click', () => {
             registrarChegada(vid);
@@ -531,11 +605,95 @@ function renderHistoricoRecebimento(container) {
         const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
         const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
         const hora = info.hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const data = info.hora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const div = document.createElement('div');
         div.className = 'historico-item';
-        div.innerHTML = `<span>${info.ordem}º ${icon} <strong>${vid}</strong></span><span>chegou às ${hora}</span>`;
+        div.innerHTML = `<span>${info.ordem}º ${icon} <strong>${vid}</strong></span><span>Chegou em ${data} às ${hora}</span>`;
         container.appendChild(div);
     }
+}
+
+// ============================================================
+// FINALIZAR RECEBIMENTO - verifica nao-recebidos e gera PDF
+// ============================================================
+function finalizarRecebimento() {
+    const todosVeiculos = equipamentos.map(e => e.veiculo || 'SEM_VEICULO');
+    const naoRecebidos = todosVeiculos.filter(v => !recebimentoState.chegados[v]);
+
+    if (naoRecebidos.length > 0) {
+        const listaStr = naoRecebidos.map(v => `• ${getVeiculoIcon(equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === v)?.veiculo)} ${v}`).join('<br>');
+        showModal(
+            'Equipamentos Não Recebidos',
+            `Os seguintes equipamentos <strong>não foram registrados</strong>:<br><br>${listaStr}<br><br>Confirma que eles realmente não chegaram?`,
+            'warning',
+            () => { gerarPDFResumoRecebimento(); },
+            null // nao faz nada, volta pra tela
+        );
+    } else {
+        gerarPDFResumoRecebimento();
+    }
+}
+
+function gerarPDFResumoRecebimento() {
+    // Monta conteudo do resumo pra imprimir
+    const resumoDiv = document.createElement('div');
+    resumoDiv.id = 'resumoRecebimentoPrint';
+    resumoDiv.className = 'resumo-recebimento-print';
+
+    const agora = new Date();
+    const dataStr = agora.toLocaleDateString('pt-BR');
+    const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    let html = `
+        <h2>Resumo de Recebimento de Equipamentos</h2>
+        <p class="resumo-meta">Base: <strong>${baseSelecionada}</strong> | Gerado em: ${dataStr} às ${horaStr}</p>
+        <h3>Equipamentos Recebidos (${Object.keys(recebimentoState.chegados).length})</h3>
+        <table class="resumo-table">
+            <thead><tr><th>#</th><th>Tipo</th><th>Equipamento</th><th>HUs</th><th>Pacotes</th><th>Data</th><th>Hora</th></tr></thead>
+            <tbody>
+    `;
+
+    const chegados = Object.entries(recebimentoState.chegados)
+        .sort((a, b) => a[1].ordem - b[1].ordem);
+
+    for (const [vid, info] of chegados) {
+        const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
+        const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
+        const tipo = eq && isLamina(eq.veiculo) ? 'Lâmina' : 'Porão';
+        const totalHUs = eq ? eq.hus.length : 0;
+        const totalPcts = eq ? eq.hus.reduce((s, h) => s + h.pacotes, 0) : 0;
+        const data = info.hora.toLocaleDateString('pt-BR');
+        const hora = info.hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        html += `<tr><td>${info.ordem}º</td><td>${icon} ${tipo}</td><td><strong>${vid}</strong></td><td>${totalHUs}</td><td>${totalPcts.toLocaleString('pt-BR')}</td><td>${data}</td><td>${hora}</td></tr>`;
+    }
+    html += `</tbody></table>`;
+
+    // Nao recebidos
+    const todosVeiculos = equipamentos.map(e => e.veiculo || 'SEM_VEICULO');
+    const naoRecebidos = todosVeiculos.filter(v => !recebimentoState.chegados[v]);
+
+    if (naoRecebidos.length > 0) {
+        html += `<h3 class="resumo-alerta">⚠️ Equipamentos NÃO Recebidos (${naoRecebidos.length})</h3><ul class="resumo-nao-recebidos">`;
+        for (const v of naoRecebidos) {
+            const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === v);
+            const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
+            html += `<li>${icon} <strong>${v}</strong></li>`;
+        }
+        html += `</ul>`;
+    } else {
+        html += `<p class="resumo-ok">✅ Todos os equipamentos foram recebidos!</p>`;
+    }
+
+    resumoDiv.innerHTML = html;
+    document.body.appendChild(resumoDiv);
+
+    // Imprime
+    document.body.classList.add('print-resumo-recebimento');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('print-resumo-recebimento');
+        resumoDiv.remove();
+    }, 500);
 }
 
 // ============================================================
@@ -1069,7 +1227,7 @@ function renderExpedidas() {
         btnActions.className = 'carreta-exp-actions';
         btnActions.innerHTML = `
             <button class="btn btn-primary btn-print-carreta">🖨️ Imprimir ${nome} (PDF)</button>
-            <button class="btn btn-warning btn-print-zebra">🏷️ Etiquetas Zebra</button>
+            <button class="btn btn-warning btn-print-zebra">🏷️ Imprimir Etiquetas</button>
         `;
         btnActions.querySelector('.btn-print-carreta').addEventListener('click', () => printCarreta(i));
         btnActions.querySelector('.btn-print-zebra').addEventListener('click', () => printCarretaZebra(i));
@@ -1112,19 +1270,11 @@ function printCarreta(idx) {
     }, 500);
 }
 
-// Impressao de carreta (formato Zebra - etiqueta)
+// Impressao de carreta (formato Zebra - etiqueta via EPL)
 function printCarretaZebra(idx) {
-    document.body.classList.add('print-zebra');
-    const sections = document.querySelectorAll('.carreta-expedida');
-    sections.forEach(s => {
-        if (parseInt(s.dataset.idx) === idx) s.classList.add('print-visible');
-        else s.classList.remove('print-visible');
-    });
-    window.print();
-    setTimeout(() => {
-        document.body.classList.remove('print-zebra');
-        sections.forEach(s => s.classList.remove('print-visible'));
-    }, 500);
+    const carreta = carretas['_current'][idx];
+    if (!carreta) return;
+    gerarEPLeImprimir(carreta.hus);
 }
 
 // ============================================================
@@ -1177,7 +1327,7 @@ function renderVisualizacaoEquipamentos() {
         eqActions.className = 'eq-print-actions';
         eqActions.innerHTML = `
             <button class="btn btn-primary btn-sm">🖨️ Imprimir (PDF)</button>
-            <button class="btn btn-warning btn-sm">🏷️ Etiquetas Zebra</button>
+            <button class="btn btn-warning btn-sm">🏷️ Imprimir Etiquetas</button>
         `;
         eqActions.querySelector('.btn-primary').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1229,19 +1379,11 @@ function imprimirEquipamentoPDF(vid) {
     }, 500);
 }
 
-// Impressao por equipamento (Zebra)
+// Impressao por equipamento (Zebra EPL)
 function imprimirEquipamentoZebra(vid) {
-    const grids = document.querySelectorAll('#visualizacaoEquipamentos .qr-grid');
-    grids.forEach(g => {
-        if (g.dataset.equip === vid) g.classList.add('print-visible');
-        else g.classList.remove('print-visible');
-    });
-    document.body.classList.add('print-zebra');
-    window.print();
-    setTimeout(() => {
-        document.body.classList.remove('print-zebra');
-        grids.forEach(g => g.classList.remove('print-visible'));
-    }, 500);
+    const eq = equipamentos.find(e => (e.veiculo || 'SEM_VEICULO') === vid);
+    if (!eq) return;
+    gerarEPLeImprimir(eq.hus);
 }
 
 // Imprimir TODOS equipamentos em PDF (fallback sem etiquetadora)
@@ -1251,11 +1393,80 @@ function imprimirTodosEquipamentosPDF() {
     setTimeout(() => document.body.classList.remove('print-equip-all'), 500);
 }
 
-// Imprimir TODOS equipamentos em Zebra
+// Imprimir TODOS equipamentos em Zebra EPL
 function imprimirTodosEquipamentosZebra() {
-    document.body.classList.add('print-zebra-all');
-    window.print();
-    setTimeout(() => document.body.classList.remove('print-zebra-all'), 500);
+    const allHUs = equipamentos.flatMap(e => e.hus);
+    gerarEPLeImprimir(allHUs);
+}
+
+// ============================================================
+// GERACAO DE EPL2 PARA IMPRESSORAS ZEBRA (GC420t / ZT411)
+// Cada HU gera uma etiqueta individual com QR code
+// Formato: etiqueta 50x25mm (largura 400 dots, altura 200 dots a 203dpi)
+// ============================================================
+function gerarEPLeImprimir(hus) {
+    let eplContent = '';
+
+    for (const hu of hus) {
+        // EPL2 - cada etiqueta individual
+        // N = limpa buffer, q400 = largura label, Q200 = altura label
+        eplContent += '\nN\n';
+        eplContent += 'q400\n';
+        eplContent += 'Q200,24\n';
+        // Codigo de barras 2D (QR Code): posicao x10 y10, modelo 2, cell size 4
+        eplContent += `b10,10,Q,s4,"${hu.hu}"\n`;
+        // Texto: HU number
+        eplContent += `A170,15,0,2,1,1,N,"${hu.hu}"\n`;
+        // Texto: pacotes
+        eplContent += `A170,45,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+        // Texto: veiculo
+        if (hu.veiculo) {
+            eplContent += `A170,75,0,2,1,1,N,"${getVeiculoIcon(hu.veiculo) === '✈️' ? 'LAM' : 'POR'} ${hu.veiculo}"\n`;
+        }
+        // Texto: canalizacao
+        eplContent += `A170,105,0,2,1,1,N,"${hu.canalizacao}"\n`;
+        // Imprime 1 etiqueta
+        eplContent += 'P1\n';
+    }
+
+    // Abre janela com conteudo EPL pra copiar/enviar pra impressora
+    const blob = new Blob([eplContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+
+    // Abre em nova janela pra o usuario enviar pra impressora (ou salvar)
+    const win = window.open('', '_blank', 'width=700,height=500');
+    if (win) {
+        win.document.write(`
+            <html><head><title>Etiquetas EPL - Zebra</title>
+            <style>
+                body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #0f0; }
+                h2 { color: #fff; font-family: sans-serif; }
+                p { color: #ccc; font-family: sans-serif; font-size: 14px; }
+                pre { background: #16213e; padding: 15px; border-radius: 8px; overflow: auto; max-height: 300px; font-size: 12px; }
+                .actions { margin: 15px 0; }
+                button { padding: 10px 20px; margin-right: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+                .btn-copy { background: #0f0; color: #000; }
+                .btn-download { background: #4361ee; color: #fff; }
+            </style></head><body>
+            <h2>🏷️ Etiquetas EPL Geradas (${hus.length} etiquetas)</h2>
+            <p>Compatível com <strong>Zebra GC420t</strong> e <strong>Zebra ZT411</strong>.<br>
+            Copie o conteúdo e envie para a impressora via driver, ou baixe o arquivo .epl</p>
+            <div class="actions">
+                <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('eplCode').textContent).then(()=>alert('Copiado!'))">📋 Copiar EPL</button>
+                <button class="btn-download" onclick="downloadEPL()">💾 Baixar .epl</button>
+            </div>
+            <pre id="eplCode">${eplContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            <script>
+                function downloadEPL() {
+                    const a = document.createElement('a');
+                    a.href = '${url}';
+                    a.download = 'etiquetas_${new Date().toISOString().slice(0,10)}.epl';
+                    a.click();
+                }
+            </script>
+            </body></html>
+        `);
+    }
 }
 
 // ============================================================

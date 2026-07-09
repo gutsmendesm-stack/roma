@@ -657,7 +657,18 @@ header h1 {
     .hub-canais, .hub-cards, .recebimento-panels,
     .recebimento-historico, .vis-actions, .eq-print-actions,
     .accordion-header, .btn, .btn-link, #step0,
-    .top-actions, .step-hint, .merge-container {
+    .top-actions, .step-hint, .merge-container,
+    .modal-overlay, #btnFinalizarRecebimento {
+        display: none !important;
+    }
+
+    /* Esconder TODOS os steps por padrao - so mostra o que precisa */
+    #step0, #step1, #step2, #step3, #step4, #step5, #step6, #step7 {
+        display: none !important;
+    }
+
+    /* Esconder titulos H2 dos steps (evita paginas em branco) */
+    .step-section > h2 {
         display: none !important;
     }
 
@@ -675,23 +686,20 @@ header h1 {
     body.print-all-qr .section-divider { display: none !important; }
 
     /* Print single canalizacao */
+    body.print-single-canal #step4 { display: block !important; }
     body.print-single-canal .canalizacao-section { display: none !important; }
     body.print-single-canal .canalizacao-section.print-visible { display: block !important; }
     body.print-single-canal .section-divider { display: none !important; }
-    body.print-single-canal #step4 { display: block !important; }
 
     /* Print carreta expedida */
     body.print-single-carreta #step6 { display: block !important; }
-    body.print-single-carreta #step6 > h2 { display: none !important; }
     body.print-single-carreta .carreta-expedida { display: none !important; }
     body.print-single-carreta .carreta-expedida.print-visible { display: block !important; }
 
     .carreta-expedida {
-        page-break-before: always;
         border: 2px solid #333;
         margin: 0;
     }
-    .carreta-expedida:first-child { page-break-before: auto; }
 
     .carreta-expedida-header {
         background: #333 !important;
@@ -746,89 +754,15 @@ header h1 {
     body.print-equip-all .accordion-body {
         display: block !important;
     }
-}
 
-
-/* ============================================================
-   PRINT STYLES - ZEBRA (ETIQUETADORA)
-   Layout compacto para etiquetas ~50x25mm
-   ============================================================ */
-@media print {
-    body.print-zebra #step6,
-    body.print-zebra #step7 { display: block !important; }
-
-    body.print-zebra .carreta-expedida { display: none !important; }
-    body.print-zebra .carreta-expedida.print-visible { display: block !important; }
-
-    body.print-zebra .carreta-expedida-header { display: none !important; }
-
-    body.print-zebra .qr-grid,
-    body.print-zebra-all .qr-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 2mm;
-        padding: 0;
-    }
-
-    body.print-zebra .qr-card,
-    body.print-zebra-all .qr-card {
-        width: 50mm;
-        height: 25mm;
-        border: 1px solid #000;
-        border-radius: 0;
-        padding: 2mm;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 2mm;
-        page-break-inside: avoid;
-        box-shadow: none;
-    }
-
-    body.print-zebra .qr-card canvas,
-    body.print-zebra-all .qr-card canvas {
-        width: 20mm !important;
-        height: 20mm !important;
-        margin: 0;
-    }
-
-    body.print-zebra .qr-hu-number,
-    body.print-zebra-all .qr-hu-number {
-        font-size: 7pt;
-        margin: 0;
-    }
-
-    body.print-zebra .qr-pacotes,
-    body.print-zebra-all .qr-pacotes {
-        font-size: 6pt;
-        margin: 0;
-    }
-
-    body.print-zebra .qr-veiculo,
-    body.print-zebra-all .qr-veiculo {
-        font-size: 6pt;
-        padding: 0;
-        background: none;
-        margin: 0;
-    }
-
-    body.print-zebra .qr-canalizacao,
-    body.print-zebra-all .qr-canalizacao {
-        font-size: 6pt;
-        padding: 1px 4px;
-        margin: 0;
-    }
-
-    /* Zebra all (todos equipamentos) */
-    body.print-zebra-all #step7 { display: block !important; }
-    body.print-zebra-all .accordion-item {
+    /* Print resumo de recebimento */
+    body.print-resumo-recebimento .container { display: none !important; }
+    body.print-resumo-recebimento .resumo-recebimento-print {
         display: block !important;
-        border: none;
-        box-shadow: none;
+        padding: 20px;
     }
-    body.print-zebra-all .accordion-header { display: none !important; }
-    body.print-zebra-all .accordion-body { display: block !important; border: none; }
 }
+
 
 /* ============================================================
    RESPONSIVE
@@ -845,4 +779,146 @@ header h1 {
     .input-placa { width: 100%; }
     .card { padding: 15px 20px; min-width: 90px; }
     .card-value { font-size: 1.4rem; }
+}
+
+
+
+/* ============================================================
+   MODAL CUSTOMIZADO (alertas de base/data)
+   ============================================================ */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.modal-box {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 50px;
+    max-width: 550px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalIn 0.3s ease;
+}
+
+@keyframes modalIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.modal-message {
+    font-size: 1.1rem;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.modal-actions .btn {
+    min-width: 140px;
+    padding: 14px 28px;
+    font-size: 1.05rem;
+}
+
+/* ============================================================
+   RESUMO DE RECEBIMENTO (PDF impresso)
+   ============================================================ */
+.resumo-recebimento-print {
+    display: none;
+    font-family: 'Segoe UI', sans-serif;
+    padding: 30px;
+}
+
+.resumo-recebimento-print h2 {
+    text-align: center;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.resumo-recebimento-print h3 {
+    margin-top: 25px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.resumo-meta {
+    text-align: center;
+    color: #555;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.resumo-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 0.9rem;
+}
+
+.resumo-table th, .resumo-table td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.resumo-table th {
+    background: #2c3e50;
+    color: white;
+    font-weight: 600;
+}
+
+.resumo-table tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.resumo-alerta {
+    color: #dc2626;
+}
+
+.resumo-nao-recebidos {
+    list-style: none;
+    padding: 0;
+}
+
+.resumo-nao-recebidos li {
+    padding: 8px 15px;
+    margin-bottom: 5px;
+    background: #fef2f2;
+    border-left: 3px solid #dc2626;
+    border-radius: 4px;
+}
+
+.resumo-ok {
+    color: #059669;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-align: center;
+    margin-top: 15px;
 }
