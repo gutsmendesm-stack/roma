@@ -342,14 +342,20 @@ function showModal(titulo, mensagem, tipo, onConfirm, onCancel) {
         info: 'ℹ️'
     };
 
+    // Se nao tem onConfirm E nao tem onCancel, mostra so botao OK
+    const soOk = !onConfirm && !onCancel;
+    const botoesHtml = soOk
+        ? `<button class="btn btn-primary modal-btn-confirm">OK</button>`
+        : `<button class="btn btn-primary modal-btn-confirm">Sim, continuar</button>
+           <button class="btn btn-secondary modal-btn-cancel">Cancelar</button>`;
+
     overlay.innerHTML = `
         <div class="modal-box">
             <div class="modal-icon">${iconMap[tipo] || '⚠️'}</div>
             <h2 class="modal-title">${titulo}</h2>
             <p class="modal-message">${mensagem}</p>
             <div class="modal-actions">
-                <button class="btn btn-primary modal-btn-confirm">Sim, continuar</button>
-                <button class="btn btn-secondary modal-btn-cancel">Cancelar</button>
+                ${botoesHtml}
             </div>
         </div>
     `;
@@ -361,10 +367,13 @@ function showModal(titulo, mensagem, tipo, onConfirm, onCancel) {
         if (onConfirm) onConfirm();
     });
 
-    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
-        overlay.remove();
-        if (onCancel) onCancel();
-    });
+    const cancelBtn = overlay.querySelector('.modal-btn-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            overlay.remove();
+            if (onCancel) onCancel();
+        });
+    }
 
     // Fecha com ESC
     const escHandler = (e) => {
@@ -1297,11 +1306,11 @@ function printCarreta(idx) {
     }, 500);
 }
 
-// Impressao de carreta (formato Zebra - etiqueta via EPL)
+// Impressao de carreta (formato Zebra - etiqueta via Browser Print SDK)
 function printCarretaZebra(idx) {
     const carreta = carretas['_current'][idx];
     if (!carreta) return;
-    gerarEPLeImprimir(carreta.hus);
+    enviarParaZebra(carreta.hus);
 }
 
 // ============================================================
@@ -1406,11 +1415,11 @@ function imprimirEquipamentoPDF(vid) {
     }, 500);
 }
 
-// Impressao por equipamento (Zebra EPL)
+// Impressao por equipamento (Zebra EPL via Browser Print SDK)
 function imprimirEquipamentoZebra(vid) {
     const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
     if (!eq) return;
-    gerarEPLeImprimir(eq.hus);
+    enviarParaZebra(eq.hus);
 }
 
 // Imprimir TODOS equipamentos em PDF (fallback sem etiquetadora)
@@ -1420,80 +1429,183 @@ function imprimirTodosEquipamentosPDF() {
     setTimeout(() => document.body.classList.remove('print-equip-all'), 500);
 }
 
-// Imprimir TODOS equipamentos em Zebra EPL
+// Imprimir TODOS equipamentos em Zebra EPL via Browser Print SDK
 function imprimirTodosEquipamentosZebra() {
     const allHUs = equipamentos.flatMap(e => e.hus);
-    gerarEPLeImprimir(allHUs);
+    enviarParaZebra(allHUs);
 }
 
 // ============================================================
-// GERACAO DE EPL2 PARA IMPRESSORAS ZEBRA (GC420t / ZT411)
-// Cada HU gera uma etiqueta individual com QR code
-// Formato: etiqueta 50x25mm (largura 400 dots, altura 200 dots a 203dpi)
+// ZEBRA BROWSER PRINT SDK - Impressao direta de etiquetas
+// Compativel com Zebra GC420t e ZT411 (linguagem EPL2)
+// Requer: Zebra Browser Print Agent instalado no PC
 // ============================================================
-function gerarEPLeImprimir(hus) {
+let zebraPrinter = null; // impressora selecionada
+
+function enviarParaZebra(hus) {
+    // Se ja tem impressora selecionada, manda direto
+    if (zebraPrinter) {
+        enviarEPLParaImpressora(zebraPrinter, hus);
+        return;
+    }
+
+    // Tenta encontrar impressora via SDK
+    if (typeof BrowserPrint === 'undefined') {
+        showModal(
+            'Zebra Browser Print não detectado',
+            `O programa <strong>Zebra Browser Print</strong> não está instalado ou não está rodando neste computador.<br><br>
+            <strong>Para imprimir etiquetas diretamente:</strong><br>
+            1. Baixe o <a href="https://www.zebra.com/us/en/support-downloads/printer-software/by-request-software.html" target="_blank">Zebra Browser Print</a><br>
+            2. Instale e inicie o programa<br>
+            3. Acesse <a href="https://localhost:9101/ssl_support" target="_blank">https://localhost:9101/ssl_support</a> e aceite o certificado<br>
+            4. Tente imprimir novamente<br><br>
+            <em>Enquanto isso, você pode usar o botão "Imprimir Tudo (PDF)" como alternativa.</em>`,
+            'info',
+            null,
+            null
+        );
+        return;
+    }
+
+    // Busca impressora padrao
+    BrowserPrint.getDefaultDevice('printer',
+        function(device) {
+            if (device) {
+                zebraPrinter = device;
+                enviarEPLParaImpressora(device, hus);
+            } else {
+                // Tenta listar todas as impressoras disponiveis
+                buscarImpressorasZebra(hus);
+            }
+        },
+        function(error) {
+            mostrarErroZebra(error);
+        }
+    );
+}
+
+function buscarImpressorasZebra(hus) {
+    BrowserPrint.getLocalDevices(
+        function(devices) {
+            let printers = [];
+            if (Array.isArray(devices)) {
+                printers = devices;
+            } else if (devices && devices.printer) {
+                printers = devices.printer;
+            } else if (devices && typeof devices === 'object') {
+                try { printers = Array.from(devices); } catch(e) { printers = []; }
+            }
+
+            if (printers.length === 0) {
+                mostrarErroZebra('Nenhuma impressora Zebra encontrada na rede.');
+                return;
+            }
+
+            if (printers.length === 1) {
+                zebraPrinter = printers[0];
+                enviarEPLParaImpressora(printers[0], hus);
+            } else {
+                // Multiplas impressoras - deixa usuario escolher
+                mostrarSeletorImpressora(printers, hus);
+            }
+        },
+        function(error) {
+            mostrarErroZebra(error);
+        },
+        'printer'
+    );
+}
+
+function mostrarSeletorImpressora(printers, hus) {
+    const lista = printers.map((p, i) => `<button class="btn btn-primary modal-printer-btn" data-idx="${i}" style="margin:5px;display:block;width:100%">${p.name || p.uid || 'Impressora ' + (i+1)}</button>`).join('');
+
+    showModal(
+        'Selecione a Impressora',
+        `Foram encontradas <strong>${printers.length}</strong> impressoras Zebra:<br><br>${lista}`,
+        'info',
+        null,
+        null
+    );
+
+    // Adiciona evento nos botoes apos o modal aparecer
+    setTimeout(() => {
+        document.querySelectorAll('.modal-printer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.idx);
+                zebraPrinter = printers[idx];
+                const modal = document.getElementById('customModal');
+                if (modal) modal.remove();
+                enviarEPLParaImpressora(printers[idx], hus);
+            });
+        });
+    }, 100);
+}
+
+function enviarEPLParaImpressora(device, hus) {
+    // Gera EPL2 para todas as HUs (uma etiqueta por HU)
     let eplContent = '';
 
     for (const hu of hus) {
         // EPL2 - cada etiqueta individual
-        // N = limpa buffer, q400 = largura label, Q200 = altura label
+        // N = limpa buffer imagem
+        // q400 = largura do label em dots (50mm @ 203dpi = ~400 dots)
+        // Q200,24 = altura do label em dots (25mm @ 203dpi = ~200 dots), gap 24 dots
         eplContent += '\nN\n';
         eplContent += 'q400\n';
         eplContent += 'Q200,24\n';
-        // Codigo de barras 2D (QR Code): posicao x10 y10, modelo 2, cell size 4
+        // QR Code: posicao x10 y10, modelo 2, tamanho celula 4
         eplContent += `b10,10,Q,s4,"${hu.hu}"\n`;
-        // Texto: HU number
+        // Texto: numero da HU
         eplContent += `A170,15,0,2,1,1,N,"${hu.hu}"\n`;
         // Texto: pacotes
         eplContent += `A170,45,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
-        // Texto: veiculo
+        // Texto: veiculo/equipamento
         if (hu.veiculo) {
-            eplContent += `A170,75,0,2,1,1,N,"${getVeiculoIcon(hu.veiculo) === '✈️' ? 'LAM' : 'POR'} ${hu.veiculo}"\n`;
+            const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
+            eplContent += `A170,75,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
         }
         // Texto: canalizacao
         eplContent += `A170,105,0,2,1,1,N,"${hu.canalizacao}"\n`;
-        // Imprime 1 etiqueta
+        // Imprime 1 copia
         eplContent += 'P1\n';
     }
 
-    // Abre janela com conteudo EPL pra copiar/enviar pra impressora
-    const blob = new Blob([eplContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+    // Envia pro dispositivo via Browser Print SDK
+    device.send(eplContent,
+        function() {
+            showModal(
+                'Etiquetas Enviadas!',
+                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Verifique se a impressão saiu corretamente.`,
+                'success',
+                null,
+                null
+            );
+        },
+        function(error) {
+            showModal(
+                'Erro na Impressão',
+                `Não foi possível enviar para a impressora.<br><br>Erro: ${error || 'Conexão recusada'}<br><br>Verifique se a impressora está ligada e conectada.`,
+                'error',
+                null,
+                null
+            );
+        }
+    );
+}
 
-    // Abre em nova janela pra o usuario enviar pra impressora (ou salvar)
-    const win = window.open('', '_blank', 'width=700,height=500');
-    if (win) {
-        win.document.write(`
-            <html><head><title>Etiquetas EPL - Zebra</title>
-            <style>
-                body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #0f0; }
-                h2 { color: #fff; font-family: sans-serif; }
-                p { color: #ccc; font-family: sans-serif; font-size: 14px; }
-                pre { background: #16213e; padding: 15px; border-radius: 8px; overflow: auto; max-height: 300px; font-size: 12px; }
-                .actions { margin: 15px 0; }
-                button { padding: 10px 20px; margin-right: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-                .btn-copy { background: #0f0; color: #000; }
-                .btn-download { background: #4361ee; color: #fff; }
-            </style></head><body>
-            <h2>🏷️ Etiquetas EPL Geradas (${hus.length} etiquetas)</h2>
-            <p>Compatível com <strong>Zebra GC420t</strong> e <strong>Zebra ZT411</strong>.<br>
-            Copie o conteúdo e envie para a impressora via driver, ou baixe o arquivo .epl</p>
-            <div class="actions">
-                <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('eplCode').textContent).then(()=>alert('Copiado!'))">📋 Copiar EPL</button>
-                <button class="btn-download" onclick="downloadEPL()">💾 Baixar .epl</button>
-            </div>
-            <pre id="eplCode">${eplContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-            <script>
-                function downloadEPL() {
-                    const a = document.createElement('a');
-                    a.href = '${url}';
-                    a.download = 'etiquetas_${new Date().toISOString().slice(0,10)}.epl';
-                    a.click();
-                }
-            </script>
-            </body></html>
-        `);
-    }
+function mostrarErroZebra(error) {
+    showModal(
+        'Impressora Zebra Não Encontrada',
+        `Não foi possível conectar à impressora Zebra.<br><br>
+        <strong>Verifique:</strong><br>
+        1. O programa <strong>Zebra Browser Print</strong> está rodando?<br>
+        2. A impressora está ligada e conectada (USB ou rede)?<br>
+        3. Você aceitou o certificado SSL? Acesse: <a href="https://localhost:9101/ssl_support" target="_blank">localhost:9101/ssl_support</a><br><br>
+        <em>Erro: ${error || 'Sem resposta do agente'}</em>`,
+        'error',
+        null,
+        null
+    );
 }
 
 // ============================================================
