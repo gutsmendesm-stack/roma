@@ -179,7 +179,6 @@ btnVerExpedidas.addEventListener('click', () => { renderExpedidas(); showStep(6)
 
 // Impressao - visualizacao por equipamentos
 document.getElementById('btnImprimirTodosEquip').addEventListener('click', imprimirTodosEquipamentosPDF);
-document.getElementById('btnImprimirZebraTodos').addEventListener('click', imprimirTodosEquipamentosZebra);
 document.getElementById('btnImprimirEtiqNavegador').addEventListener('click', imprimirTodosEtiquetasNavegador);
 
 
@@ -477,6 +476,14 @@ function normalizarNomeVeiculo(veiculo) {
     // Remove zeros a esquerda de sequencias numericas
     // "PAG 00044 G3" -> "PAG 44 G3", "PAG 000266 G3" -> "PAG 266 G3"
     nome = nome.replace(/\b0+(\d+)/g, '$1');
+    // Normaliza sufixo G/G3: "PAG 179 G3" e "PAG 179 G" e "PAG 179" viram "PAG 179 G3"
+    // Se termina com " G" (sem numero), adiciona "3" pra virar "G3"
+    nome = nome.replace(/\s+G\s*$/i, ' G3');
+    // Se NAO tem sufixo G3 mas eh PAG/PKC com numero, adiciona G3
+    // Ex: "PAG 902" -> "PAG 902 G3" (mesmo equipamento que "PAG 902 G3")
+    if (/^(PAG|PKC)\s+\d+$/.test(nome)) {
+        nome = nome + ' G3';
+    }
     return nome;
 }
 
@@ -1264,11 +1271,9 @@ function renderExpedidas() {
         btnActions.className = 'carreta-exp-actions';
         btnActions.innerHTML = `
             <button class="btn btn-primary btn-print-carreta">🖨️ Imprimir ${nome} (PDF)</button>
-            <button class="btn btn-warning btn-print-zebra">🏷️ Etiquetas (Zebra)</button>
-            <button class="btn btn-secondary btn-print-outras">🖨️ Etiquetas (Outras Impressoras)</button>
+            <button class="btn btn-warning btn-print-outras">🏷️ Imprimir Etiquetas</button>
         `;
         btnActions.querySelector('.btn-print-carreta').addEventListener('click', () => printCarreta(i));
-        btnActions.querySelector('.btn-print-zebra').addEventListener('click', () => printCarretaZebra(i));
         btnActions.querySelector('.btn-print-outras').addEventListener('click', () => imprimirEtiquetasNavegador(carreta.hus));
         section.appendChild(btnActions);
 
@@ -1366,18 +1371,13 @@ function renderVisualizacaoEquipamentos() {
         eqActions.className = 'eq-print-actions';
         eqActions.innerHTML = `
             <button class="btn btn-primary btn-sm">🖨️ Imprimir (PDF)</button>
-            <button class="btn btn-warning btn-sm">🏷️ Zebra</button>
-            <button class="btn btn-secondary btn-sm">🖨️ Outras Impressoras</button>
+            <button class="btn btn-warning btn-sm">🏷️ Imprimir Etiquetas</button>
         `;
         eqActions.querySelector('.btn-primary').addEventListener('click', (e) => {
             e.stopPropagation();
             imprimirEquipamentoPDF(vid);
         });
         eqActions.querySelector('.btn-warning').addEventListener('click', (e) => {
-            e.stopPropagation();
-            imprimirEquipamentoZebra(vid);
-        });
-        eqActions.querySelector('.btn-secondary').addEventListener('click', (e) => {
             e.stopPropagation();
             imprimirEtiquetasNavegadorEquip(vid);
         });
