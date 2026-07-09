@@ -440,14 +440,15 @@ function parseRomaneios(pagesText) {
 }
 
 
-// Agrupa HUs por equipamento/veiculo
+// Agrupa HUs por equipamento/veiculo (normaliza nome pra evitar duplicatas)
 function buildEquipamentos(data) {
     const veiculoMap = {};
     for (const key of Object.keys(data)) {
         for (const entry of data[key]) {
-            const vid = entry.veiculo || 'SEM_VEICULO';
+            // Normaliza: remove espaços extras, uppercase
+            const vid = (entry.veiculo || 'SEM_VEICULO').trim().replace(/\s+/g, ' ').toUpperCase();
             if (!veiculoMap[vid]) {
-                veiculoMap[vid] = { veiculo: entry.veiculo, hus: [], canalizacoes: {} };
+                veiculoMap[vid] = { veiculo: entry.veiculo ? vid : '', hus: [], canalizacoes: {} };
             }
             veiculoMap[vid].hus.push(entry);
             if (!veiculoMap[vid].canalizacoes[key]) veiculoMap[vid].canalizacoes[key] = [];
@@ -557,7 +558,8 @@ function criarItemRecebimento(eq) {
     const icon = getVeiculoIcon(eq.veiculo);
     const totalHUs = eq.hus.length;
     const totalPcts = eq.hus.reduce((s, h) => s + h.pacotes, 0);
-    const canais = Object.keys(eq.canalizacoes).join(', ');
+    const canais = Object.keys(eq.canalizacoes);
+    const canaisStr = canais.join(', ');
     const jaChegou = recebimentoState.chegados[vid];
 
     const item = document.createElement('div');
@@ -570,7 +572,7 @@ function criarItemRecebimento(eq) {
             <div class="eq-info">
                 <span class="eq-icon">${icon}</span>
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
-                <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
+                <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canaisStr}</span>
             </div>
             <span class="recebido-hora">✅ Chegou ${data} ${hora}</span>
         `;
@@ -579,7 +581,7 @@ function criarItemRecebimento(eq) {
             <div class="eq-info">
                 <span class="eq-icon">${icon}</span>
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
-                <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canais}</span>
+                <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canaisStr}</span>
             </div>
             <button class="btn-chegou">Registrar Recebimento</button>
         `;
