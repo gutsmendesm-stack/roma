@@ -922,3 +922,22 @@ header h1 {
     text-align: center;
     margin-top: 15px;
 }
+
+
+
+/* Linha de HUs no resumo de recebimento */
+.resumo-hus-row {
+    font-size: 0.8rem;
+    color: #555;
+    background: #f8f9fa !important;
+    padding: 4px 12px !important;
+    word-break: break-all;
+}
+
+.resumo-hus-detalhe {
+    font-size: 0.8rem;
+    color: #555;
+    word-break: break-all;
+    display: block;
+    margin-top: 3px;
+}

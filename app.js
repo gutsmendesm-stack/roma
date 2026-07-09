@@ -685,9 +685,11 @@ function gerarPDFResumoRecebimento() {
         const tipo = eq && isLamina(eq.veiculo) ? 'Lâmina' : 'Porão';
         const totalHUs = eq ? eq.hus.length : 0;
         const totalPcts = eq ? eq.hus.reduce((s, h) => s + h.pacotes, 0) : 0;
+        const husLista = eq ? eq.hus.map(h => h.hu).join(', ') : '';
         const data = info.hora.toLocaleDateString('pt-BR');
         const hora = info.hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         html += `<tr><td>${info.ordem}º</td><td>${icon} ${tipo}</td><td><strong>${vid}</strong></td><td>${totalHUs}</td><td>${totalPcts.toLocaleString('pt-BR')}</td><td>${data}</td><td>${hora}</td></tr>`;
+        html += `<tr><td colspan="7" class="resumo-hus-row">HUs: ${husLista}</td></tr>`;
     }
     html += `</tbody></table>`;
 
@@ -700,7 +702,9 @@ function gerarPDFResumoRecebimento() {
         for (const v of naoRecebidos) {
             const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === v);
             const icon = eq ? getVeiculoIcon(eq.veiculo) : '📦';
-            html += `<li>${icon} <strong>${v}</strong></li>`;
+            const totalHUs = eq ? eq.hus.length : 0;
+            const husLista = eq ? eq.hus.map(h => h.hu).join(', ') : '';
+            html += `<li>${icon} <strong>${v}</strong> — ${totalHUs} HUs<br><span class="resumo-hus-detalhe">${husLista}</span></li>`;
         }
         html += `</ul>`;
     } else {
