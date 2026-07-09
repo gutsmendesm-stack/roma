@@ -1103,7 +1103,7 @@ function renderCarretaConteudo(key, carretaIdx) {
 
     const byEquip = {};
     for (const hu of carreta.hus) {
-        const v = hu.veiculo || 'SEM_VEICULO';
+        const v = normalizarNomeVeiculo(hu.veiculo);
         if (!byEquip[v]) byEquip[v] = [];
         byEquip[v].push(hu);
     }
@@ -1140,7 +1140,7 @@ function renderCarretaConteudo(key, carretaIdx) {
 
 function removerEquipamentoDaCarreta(veiculo, carretaIdx) {
     const carreta = carretas['_current'][carretaIdx];
-    carreta.hus = carreta.hus.filter(h => h.veiculo !== veiculo);
+    carreta.hus = carreta.hus.filter(h => normalizarNomeVeiculo(h.veiculo) !== veiculo);
     carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => v !== veiculo);
     renderCarregamento();
 }
