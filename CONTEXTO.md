@@ -107,3 +107,22 @@ Após inserir o romaneio e validar (base + data), mostrar uma tela hub com:
 - A ordem de chegada vem da tela de recebimento
 - Expedição foca só em: adicionar canalizações → alocar HUs → placa → fechar/expedir → imprimir
 
+### ============================================================
+### ORDEM DE IMPLEMENTAÇÃO RECOMENDADA
+### ============================================================
+1. **Item 7** — Alerta ao atualizar página (beforeunload) — 5 min
+2. **Item 1** — Seleção de base (airhub) + validação de destino — 30 min
+3. **Item 2** — Validação de data do romaneio — 15 min
+4. **Item 3** — Reestruturar navegação (hub com botões) — 45 min
+5. **Item 4** — Recebimento de lâminas/porão com data/hora — 45 min
+6. **Item 6** — Ajustar expedição (sem botão chegou, usa dados do recebimento) — 20 min
+7. **Item 5** — Visualização de HUs por veículo (accordion + impressão) — 30 min
+8. **Item 8** — Layout de impressão para etiquetadora Zebra — 30 min
+
+Justificativa da ordem:
+- Começa pelo mais simples (beforeunload) pra já ter resultado
+- Base + data são validações que afetam o fluxo inicial
+- Navegação reestruturada é pré-requisito pro recebimento funcionar
+- Recebimento precisa existir antes de ajustar a expedição
+- Visualização por veículo e etiquetadora são independentes, ficam por último
+
