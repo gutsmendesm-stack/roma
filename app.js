@@ -153,7 +153,15 @@ btnHubRecebimento.addEventListener('click', () => { renderRecebimento(); showSte
 btnHubQRCodes.addEventListener('click', () => { renderAllQRCodes(); showStep(4); });
 btnHubExpedicao.addEventListener('click', () => { iniciarExpedicao(); showStep(5); });
 btnHubVisualizacao.addEventListener('click', () => { renderVisualizacaoEquipamentos(); showStep(7); });
-btnNovoUpload.addEventListener('click', resetAll);
+btnNovoUpload.addEventListener('click', () => {
+    showModal(
+        'Nova Operação',
+        'Todo o progresso atual será perdido.<br><br>Deseja iniciar uma nova operação?',
+        'warning',
+        () => { resetAll(); },
+        null
+    );
+});
 
 // Voltar ao hub
 btnVoltarHub1.addEventListener('click', () => showStep(2));
