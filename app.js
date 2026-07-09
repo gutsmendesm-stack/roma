@@ -1451,19 +1451,7 @@ function enviarParaZebra(hus) {
 
     // Tenta encontrar impressora via SDK
     if (typeof BrowserPrint === 'undefined') {
-        showModal(
-            'Zebra Browser Print não detectado',
-            `O programa <strong>Zebra Browser Print</strong> não está instalado ou não está rodando neste computador.<br><br>
-            <strong>Para imprimir etiquetas diretamente:</strong><br>
-            1. Baixe o <a href="https://www.zebra.com/us/en/support-downloads/printer-software/by-request-software.html" target="_blank">Zebra Browser Print</a><br>
-            2. Instale e inicie o programa<br>
-            3. Acesse <a href="https://localhost:9101/ssl_support" target="_blank">https://localhost:9101/ssl_support</a> e aceite o certificado<br>
-            4. Tente imprimir novamente<br><br>
-            <em>Enquanto isso, você pode usar o botão "Imprimir Tudo (PDF)" como alternativa.</em>`,
-            'info',
-            null,
-            null
-        );
+        mostrarGuiaConfiguracao();
         return;
     }
 
@@ -1479,7 +1467,138 @@ function enviarParaZebra(hus) {
             }
         },
         function(error) {
-            mostrarErroZebra(error);
+            mostrarGuiaConfiguracao();
+        }
+    );
+}
+
+// ============================================================
+// GUIA DE CONFIGURACAO DA IMPRESSORA (passo a passo simples)
+// ============================================================
+function mostrarGuiaConfiguracao() {
+    const existing = document.getElementById('customModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'customModal';
+    overlay.className = 'modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="modal-box modal-box-large">
+            <div class="modal-icon">🖨️</div>
+            <h2 class="modal-title">Configurar Impressora de Etiquetas</h2>
+            <p class="modal-message">Siga os passos abaixo para conectar sua Zebra. É só na primeira vez!</p>
+
+            <div class="setup-steps">
+                <div class="setup-step">
+                    <div class="setup-step-number">1</div>
+                    <div class="setup-step-content">
+                        <strong>Baixe o programa</strong>
+                        <p>Clique no botão abaixo para baixar o conector da Zebra (é rápido):</p>
+                        <a href="https://www.zebra.com/us/en/support-downloads/printer-software/by-request-software.html" target="_blank" class="btn btn-primary btn-sm">⬇️ Baixar Zebra Browser Print</a>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-number">2</div>
+                    <div class="setup-step-content">
+                        <strong>Instale e abra o programa</strong>
+                        <p>Execute o arquivo baixado e siga a instalação normal (Próximo, Próximo, Concluir). O programa vai abrir automaticamente.</p>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-number">3</div>
+                    <div class="setup-step-content">
+                        <strong>Libere o acesso no navegador</strong>
+                        <p>Clique no botão abaixo, vai abrir uma página com aviso de segurança. Clique em <strong>"Avançado"</strong> e depois <strong>"Continuar"</strong>.</p>
+                        <a href="https://localhost:9101/ssl_support" target="_blank" class="btn btn-warning btn-sm">🔓 Liberar Acesso</a>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-number">4</div>
+                    <div class="setup-step-content">
+                        <strong>Pronto! Teste a impressora</strong>
+                        <p>Depois de liberar, clique em "Testar Conexão" abaixo:</p>
+                        <button class="btn btn-success btn-sm" id="btnTestarZebra">✅ Testar Conexão</button>
+                        <span id="zebraTestResult" class="setup-test-result"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="btn btn-secondary modal-btn-cancel">Fechar</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Botao fechar
+    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
+        overlay.remove();
+    });
+
+    // Botao testar
+    overlay.querySelector('#btnTestarZebra').addEventListener('click', () => {
+        testarConexaoZebra();
+    });
+
+    // ESC fecha
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+function testarConexaoZebra() {
+    const resultEl = document.getElementById('zebraTestResult');
+    resultEl.textContent = '⏳ Testando...';
+    resultEl.style.color = '#555';
+
+    if (typeof BrowserPrint === 'undefined') {
+        resultEl.textContent = '❌ Programa não detectado. Verifique se instalou e abriu o Zebra Browser Print.';
+        resultEl.style.color = '#dc2626';
+        return;
+    }
+
+    BrowserPrint.getDefaultDevice('printer',
+        function(device) {
+            if (device) {
+                zebraPrinter = device;
+                resultEl.textContent = `✅ Conectado! Impressora: ${device.name || device.uid || 'Zebra'}`;
+                resultEl.style.color = '#059669';
+            } else {
+                BrowserPrint.getLocalDevices(
+                    function(devices) {
+                        let printers = [];
+                        if (Array.isArray(devices)) printers = devices;
+                        else if (devices && devices.printer) printers = devices.printer;
+
+                        if (printers.length > 0) {
+                            zebraPrinter = printers[0];
+                            resultEl.textContent = `✅ Conectado! Impressora: ${printers[0].name || printers[0].uid || 'Zebra'}`;
+                            resultEl.style.color = '#059669';
+                        } else {
+                            resultEl.textContent = '⚠️ Programa conectado, mas nenhuma impressora encontrada. A Zebra está ligada?';
+                            resultEl.style.color = '#d97706';
+                        }
+                    },
+                    function() {
+                        resultEl.textContent = '❌ Não conseguiu buscar impressoras. Tente liberar o acesso (passo 3).';
+                        resultEl.style.color = '#dc2626';
+                    },
+                    'printer'
+                );
+            }
+        },
+        function(error) {
+            resultEl.textContent = '❌ Sem comunicação. Verifique se o programa está aberto e se liberou o acesso (passo 3).';
+            resultEl.style.color = '#dc2626';
         }
     );
 }
@@ -1594,18 +1713,7 @@ function enviarEPLParaImpressora(device, hus) {
 }
 
 function mostrarErroZebra(error) {
-    showModal(
-        'Impressora Zebra Não Encontrada',
-        `Não foi possível conectar à impressora Zebra.<br><br>
-        <strong>Verifique:</strong><br>
-        1. O programa <strong>Zebra Browser Print</strong> está rodando?<br>
-        2. A impressora está ligada e conectada (USB ou rede)?<br>
-        3. Você aceitou o certificado SSL? Acesse: <a href="https://localhost:9101/ssl_support" target="_blank">localhost:9101/ssl_support</a><br><br>
-        <em>Erro: ${error || 'Sem resposta do agente'}</em>`,
-        'error',
-        null,
-        null
-    );
+    mostrarGuiaConfiguracao();
 }
 
 // ============================================================

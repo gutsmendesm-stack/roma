@@ -941,3 +941,91 @@ header h1 {
     display: block;
     margin-top: 3px;
 }
+
+
+
+/* ============================================================
+   GUIA DE CONFIGURACAO DA ZEBRA (passo a passo)
+   ============================================================ */
+.modal-box-large {
+    max-width: 650px;
+    padding: 35px 40px;
+    text-align: left;
+}
+
+.modal-box-large .modal-icon,
+.modal-box-large .modal-title {
+    text-align: center;
+}
+
+.modal-box-large .modal-message {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.setup-step {
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+}
+
+.setup-step-number {
+    min-width: 36px;
+    height: 36px;
+    background: #1a56db;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.setup-step-content {
+    flex: 1;
+}
+
+.setup-step-content strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #2c3e50;
+    font-size: 1rem;
+}
+
+.setup-step-content p {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.setup-step-content .btn {
+    display: inline-block;
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 8px 16px;
+}
+
+.setup-test-result {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: 20px;
+}
+
+.modal-box-large .modal-actions {
+    justify-content: center;
+}
