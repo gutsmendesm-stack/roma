@@ -1445,6 +1445,15 @@ function imprimirTodosEquipamentosZebra() {
 
 // Imprimir etiquetas via navegador (funciona com qualquer impressora)
 function imprimirEtiquetasNavegador(hus) {
+    // Se nao tem formato, pergunta
+    if (!etiquetaFormato) {
+        mostrarSeletorFormato(hus);
+        // Redireciona pra navegador depois de escolher
+        // Gambiarra: marca flag temporaria
+        window._imprimirViaNavegador = true;
+        return;
+    }
+
     // Cria container temporario com etiquetas formatadas individualmente
     let printDiv = document.getElementById('etiquetasNavegadorPrint');
     if (printDiv) printDiv.remove();
@@ -1452,17 +1461,18 @@ function imprimirEtiquetasNavegador(hus) {
     printDiv = document.createElement('div');
     printDiv.id = 'etiquetasNavegadorPrint';
     printDiv.className = 'etiquetas-navegador-print';
+    printDiv.dataset.formato = etiquetaFormato;
 
     for (const hu of hus) {
         const etiqueta = document.createElement('div');
-        etiqueta.className = 'etiqueta-individual';
+        etiqueta.className = `etiqueta-individual etiqueta-${etiquetaFormato}`;
 
         const canvas = document.createElement('canvas');
         try {
             new QRious({
                 element: canvas,
                 value: hu.hu,
-                size: 150,
+                size: etiquetaFormato === 'quadrada' ? 150 : 100,
                 foreground: '#000000',
                 background: '#ffffff',
                 level: 'M'
@@ -1511,8 +1521,15 @@ function imprimirTodosEtiquetasNavegador() {
 // Requer: Zebra Browser Print Agent instalado no PC
 // ============================================================
 let zebraPrinter = null; // impressora selecionada
+let etiquetaFormato = localStorage.getItem('etiquetaFormato') || ''; // 'quadrada' ou 'retangular'
 
 function enviarParaZebra(hus) {
+    // Se nao escolheu formato ainda, pergunta
+    if (!etiquetaFormato) {
+        mostrarSeletorFormato(hus);
+        return;
+    }
+
     // Se ja tem impressora selecionada, manda direto
     if (zebraPrinter) {
         enviarEPLParaImpressora(zebraPrinter, hus);
@@ -1532,7 +1549,6 @@ function enviarParaZebra(hus) {
                 zebraPrinter = device;
                 enviarEPLParaImpressora(device, hus);
             } else {
-                // Tenta listar todas as impressoras disponiveis
                 buscarImpressorasZebra(hus);
             }
         },
@@ -1540,6 +1556,65 @@ function enviarParaZebra(hus) {
             mostrarGuiaConfiguracao();
         }
     );
+}
+
+// ============================================================
+// SELETOR DE FORMATO DA ETIQUETA
+// ============================================================
+function mostrarSeletorFormato(hus) {
+    const existing = document.getElementById('customModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'customModal';
+    overlay.className = 'modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="modal-box">
+            <div class="modal-icon">🏷️</div>
+            <h2 class="modal-title">Formato da Etiqueta</h2>
+            <p class="modal-message">Qual o formato da etiqueta na sua impressora?</p>
+
+            <div class="formato-opcoes">
+                <button class="btn-formato" id="btnFormatoQuadrada">
+                    <div class="formato-preview formato-quadrada"></div>
+                    <strong>Quadrada</strong>
+                    <span>50 x 50 mm</span>
+                </button>
+                <button class="btn-formato" id="btnFormatoRetangular">
+                    <div class="formato-preview formato-retangular"></div>
+                    <strong>Retangular</strong>
+                    <span>50 x 25 mm</span>
+                </button>
+            </div>
+
+            <p class="formato-hint">Essa escolha fica salva para as próximas vezes. Você pode trocar depois nas configurações.</p>
+
+            <div class="modal-actions" style="margin-top: 15px;">
+                <button class="btn btn-secondary modal-btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#btnFormatoQuadrada').addEventListener('click', () => {
+        etiquetaFormato = 'quadrada';
+        localStorage.setItem('etiquetaFormato', 'quadrada');
+        overlay.remove();
+        enviarParaZebra(hus);
+    });
+
+    overlay.querySelector('#btnFormatoRetangular').addEventListener('click', () => {
+        etiquetaFormato = 'retangular';
+        localStorage.setItem('etiquetaFormato', 'retangular');
+        overlay.remove();
+        enviarParaZebra(hus);
+    });
+
+    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
+        overlay.remove();
+    });
 }
 
 // ============================================================
@@ -1732,30 +1807,45 @@ function mostrarSeletorImpressora(printers, hus) {
 
 function enviarEPLParaImpressora(device, hus) {
     // Gera EPL2 para todas as HUs (uma etiqueta por HU)
-    // Etiqueta quadrada ~50x50mm (400x400 dots a 203dpi na GC420t)
+    // Formato depende da escolha do usuario
+    const isQuadrada = etiquetaFormato === 'quadrada';
+    // Quadrada: 50x50mm = 400x400 dots | Retangular: 50x25mm = 400x200 dots
+    const alturaLabel = isQuadrada ? 400 : 200;
+    const cellSize = isQuadrada ? 6 : 4;
+    const qrY = isQuadrada ? 20 : 10;
+    const textoX = isQuadrada ? 50 : 170;
+    const textoStartY = isQuadrada ? 250 : 15;
+    const textoGap = isQuadrada ? 30 : 30;
+
     let eplContent = '';
 
     for (const hu of hus) {
-        // N = limpa buffer imagem
-        // q400 = largura do label em dots (50mm @ 203dpi = ~400 dots)
-        // Q400,24 = altura do label em dots (50mm @ 203dpi = ~400 dots), gap 24 dots
         eplContent += '\nN\n';
         eplContent += 'q400\n';
-        eplContent += 'Q400,24\n';
-        // QR Code: posicao x50 y20, modelo 2, tamanho celula 6 (maior pra etiqueta quadrada)
-        eplContent += `b50,20,Q,s6,"${hu.hu}"\n`;
-        // Texto: numero da HU (abaixo do QR code)
-        eplContent += `A50,250,0,3,1,1,N,"${hu.hu}"\n`;
-        // Texto: pacotes
-        eplContent += `A50,290,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
-        // Texto: veiculo/equipamento
-        if (hu.veiculo) {
-            const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-            eplContent += `A50,320,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+        eplContent += `Q${alturaLabel},24\n`;
+
+        if (isQuadrada) {
+            // Quadrada: QR grande centralizado em cima, texto embaixo
+            eplContent += `b50,${qrY},Q,s${cellSize},"${hu.hu}"\n`;
+            eplContent += `A${textoX},${textoStartY},0,3,1,1,N,"${hu.hu}"\n`;
+            eplContent += `A${textoX},${textoStartY + textoGap},0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+            if (hu.veiculo) {
+                const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
+                eplContent += `A${textoX},${textoStartY + textoGap * 2},0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+            }
+            eplContent += `A${textoX},${textoStartY + textoGap * 3},0,3,1,1,N,"${hu.canalizacao}"\n`;
+        } else {
+            // Retangular: QR na esquerda, textos na direita (lado a lado)
+            eplContent += `b10,${qrY},Q,s${cellSize},"${hu.hu}"\n`;
+            eplContent += `A${textoX},${textoStartY},0,2,1,1,N,"${hu.hu}"\n`;
+            eplContent += `A${textoX},${textoStartY + textoGap},0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+            if (hu.veiculo) {
+                const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
+                eplContent += `A${textoX},${textoStartY + textoGap * 2},0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+            }
+            eplContent += `A${textoX},${textoStartY + textoGap * 3},0,2,1,1,N,"${hu.canalizacao}"\n`;
         }
-        // Texto: canalizacao
-        eplContent += `A50,350,0,3,1,1,N,"${hu.canalizacao}"\n`;
-        // Imprime 1 copia
+
         eplContent += 'P1\n';
     }
 
@@ -1764,7 +1854,7 @@ function enviarEPLParaImpressora(device, hus) {
         function() {
             showModal(
                 'Etiquetas Enviadas!',
-                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Verifique se a impressão saiu corretamente.`,
+                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Formato: <strong>${isQuadrada ? 'Quadrada 50x50mm' : 'Retangular 50x25mm'}</strong>`,
                 'success',
                 null,
                 null
