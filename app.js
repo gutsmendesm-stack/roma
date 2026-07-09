@@ -309,10 +309,11 @@ function validarData() {
     dataRomaneio.setHours(0, 0, 0, 0);
 
     if (dataRomaneio < hoje) {
+        const hojeStr = hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
         return new Promise((resolve) => {
             showModal(
                 'Romaneio de Data Anterior',
-                `Este romaneio é do dia <strong>${parsedMeta.dataInicio}</strong>.<br><br>Deseja prosseguir mesmo assim?`,
+                `Este romaneio é do dia <strong>${parsedMeta.dataInicio}</strong>.<br>Hoje é <strong>${hojeStr}</strong>.<br><br>Deseja prosseguir mesmo assim?`,
                 'warning',
                 () => resolve(true),
                 () => { resetUpload(); resolve(false); }
