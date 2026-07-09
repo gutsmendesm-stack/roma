@@ -1472,7 +1472,7 @@ function imprimirEtiquetasNavegador(hus) {
             new QRious({
                 element: canvas,
                 value: hu.hu,
-                size: etiquetaFormato === 'quadrada' ? 150 : 100,
+                size: etiquetaFormato === 'quadrada' ? 250 : 150,
                 foreground: '#000000',
                 background: '#ffffff',
                 level: 'M'
@@ -1579,12 +1579,12 @@ function mostrarSeletorFormato(hus) {
                 <button class="btn-formato" id="btnFormatoQuadrada">
                     <div class="formato-preview formato-quadrada"></div>
                     <strong>Quadrada</strong>
-                    <span>50 x 50 mm</span>
+                    <span>100 x 100 mm (10x10cm)</span>
                 </button>
                 <button class="btn-formato" id="btnFormatoRetangular">
                     <div class="formato-preview formato-retangular"></div>
                     <strong>Retangular</strong>
-                    <span>50 x 25 mm</span>
+                    <span>100 x 50 mm (10x5cm)</span>
                 </button>
             </div>
 
@@ -1809,41 +1809,43 @@ function enviarEPLParaImpressora(device, hus) {
     // Gera EPL2 para todas as HUs (uma etiqueta por HU)
     // Formato depende da escolha do usuario
     const isQuadrada = etiquetaFormato === 'quadrada';
-    // Quadrada: 50x50mm = 400x400 dots | Retangular: 50x25mm = 400x200 dots
-    const alturaLabel = isQuadrada ? 400 : 200;
-    const cellSize = isQuadrada ? 6 : 4;
-    const qrY = isQuadrada ? 20 : 10;
-    const textoX = isQuadrada ? 50 : 170;
-    const textoStartY = isQuadrada ? 250 : 15;
-    const textoGap = isQuadrada ? 30 : 30;
+    // Quadrada: 100x100mm = 812x812 dots @ 203dpi
+    // Retangular: 100x50mm = 812x406 dots @ 203dpi
+    const larguraLabel = 812;
+    const alturaLabel = isQuadrada ? 812 : 406;
+    const cellSize = isQuadrada ? 10 : 6;
 
     let eplContent = '';
 
     for (const hu of hus) {
         eplContent += '\nN\n';
-        eplContent += 'q400\n';
+        eplContent += `q${larguraLabel}\n`;
         eplContent += `Q${alturaLabel},24\n`;
 
         if (isQuadrada) {
-            // Quadrada: QR grande centralizado em cima, texto embaixo
-            eplContent += `b50,${qrY},Q,s${cellSize},"${hu.hu}"\n`;
-            eplContent += `A${textoX},${textoStartY},0,3,1,1,N,"${hu.hu}"\n`;
-            eplContent += `A${textoX},${textoStartY + textoGap},0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+            // Quadrada 100x100mm: QR grande centralizado em cima, texto embaixo
+            // QR code centralizado: x ~200, y 30, cell size 10 (QR ~300x300 dots)
+            eplContent += `b200,30,Q,s${cellSize},"${hu.hu}"\n`;
+            // Textos embaixo do QR
+            eplContent += `A50,520,0,4,1,1,N,"${hu.hu}"\n`;
+            eplContent += `A50,580,0,3,1,1,N,"${hu.pacotes} pacotes"\n`;
             if (hu.veiculo) {
                 const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-                eplContent += `A${textoX},${textoStartY + textoGap * 2},0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+                eplContent += `A50,630,0,3,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
             }
-            eplContent += `A${textoX},${textoStartY + textoGap * 3},0,3,1,1,N,"${hu.canalizacao}"\n`;
+            eplContent += `A50,690,0,4,1,1,N,"${hu.canalizacao}"\n`;
         } else {
-            // Retangular: QR na esquerda, textos na direita (lado a lado)
-            eplContent += `b10,${qrY},Q,s${cellSize},"${hu.hu}"\n`;
-            eplContent += `A${textoX},${textoStartY},0,2,1,1,N,"${hu.hu}"\n`;
-            eplContent += `A${textoX},${textoStartY + textoGap},0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+            // Retangular 100x50mm: QR na esquerda, textos na direita
+            // QR code: x 30, y 30, cell size 6 (QR ~200x200 dots)
+            eplContent += `b30,30,Q,s${cellSize},"${hu.hu}"\n`;
+            // Textos do lado direito
+            eplContent += `A320,40,0,3,1,1,N,"${hu.hu}"\n`;
+            eplContent += `A320,100,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
             if (hu.veiculo) {
                 const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-                eplContent += `A${textoX},${textoStartY + textoGap * 2},0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+                eplContent += `A320,150,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
             }
-            eplContent += `A${textoX},${textoStartY + textoGap * 3},0,2,1,1,N,"${hu.canalizacao}"\n`;
+            eplContent += `A320,210,0,3,1,1,N,"${hu.canalizacao}"\n`;
         }
 
         eplContent += 'P1\n';
@@ -1854,7 +1856,7 @@ function enviarEPLParaImpressora(device, hus) {
         function() {
             showModal(
                 'Etiquetas Enviadas!',
-                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Formato: <strong>${isQuadrada ? 'Quadrada 50x50mm' : 'Retangular 50x25mm'}</strong>`,
+                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Formato: <strong>${isQuadrada ? 'Quadrada 100x100mm' : 'Retangular 100x50mm'}</strong>`,
                 'success',
                 null,
                 null
