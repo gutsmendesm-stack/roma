@@ -180,6 +180,7 @@ btnVerExpedidas.addEventListener('click', () => { renderExpedidas(); showStep(6)
 // Impressao - visualizacao por equipamentos
 document.getElementById('btnImprimirTodosEquip').addEventListener('click', imprimirTodosEquipamentosPDF);
 document.getElementById('btnImprimirZebraTodos').addEventListener('click', imprimirTodosEquipamentosZebra);
+document.getElementById('btnImprimirEtiqNavegador').addEventListener('click', imprimirTodosEtiquetasNavegador);
 
 
 // ============================================================
@@ -1263,10 +1264,12 @@ function renderExpedidas() {
         btnActions.className = 'carreta-exp-actions';
         btnActions.innerHTML = `
             <button class="btn btn-primary btn-print-carreta">🖨️ Imprimir ${nome} (PDF)</button>
-            <button class="btn btn-warning btn-print-zebra">🏷️ Imprimir Etiquetas</button>
+            <button class="btn btn-warning btn-print-zebra">🏷️ Etiquetas (Zebra)</button>
+            <button class="btn btn-secondary btn-print-outras">🖨️ Etiquetas (Outras Impressoras)</button>
         `;
         btnActions.querySelector('.btn-print-carreta').addEventListener('click', () => printCarreta(i));
         btnActions.querySelector('.btn-print-zebra').addEventListener('click', () => printCarretaZebra(i));
+        btnActions.querySelector('.btn-print-outras').addEventListener('click', () => imprimirEtiquetasNavegador(carreta.hus));
         section.appendChild(btnActions);
 
         carretasExpedidas.appendChild(section);
@@ -1363,7 +1366,8 @@ function renderVisualizacaoEquipamentos() {
         eqActions.className = 'eq-print-actions';
         eqActions.innerHTML = `
             <button class="btn btn-primary btn-sm">🖨️ Imprimir (PDF)</button>
-            <button class="btn btn-warning btn-sm">🏷️ Imprimir Etiquetas</button>
+            <button class="btn btn-warning btn-sm">🏷️ Zebra</button>
+            <button class="btn btn-secondary btn-sm">🖨️ Outras Impressoras</button>
         `;
         eqActions.querySelector('.btn-primary').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1372,6 +1376,10 @@ function renderVisualizacaoEquipamentos() {
         eqActions.querySelector('.btn-warning').addEventListener('click', (e) => {
             e.stopPropagation();
             imprimirEquipamentoZebra(vid);
+        });
+        eqActions.querySelector('.btn-secondary').addEventListener('click', (e) => {
+            e.stopPropagation();
+            imprimirEtiquetasNavegadorEquip(vid);
         });
         body.appendChild(eqActions);
 
@@ -1433,6 +1441,68 @@ function imprimirTodosEquipamentosPDF() {
 function imprimirTodosEquipamentosZebra() {
     const allHUs = equipamentos.flatMap(e => e.hus);
     enviarParaZebra(allHUs);
+}
+
+// Imprimir etiquetas via navegador (funciona com qualquer impressora)
+function imprimirEtiquetasNavegador(hus) {
+    // Cria container temporario com etiquetas formatadas individualmente
+    let printDiv = document.getElementById('etiquetasNavegadorPrint');
+    if (printDiv) printDiv.remove();
+
+    printDiv = document.createElement('div');
+    printDiv.id = 'etiquetasNavegadorPrint';
+    printDiv.className = 'etiquetas-navegador-print';
+
+    for (const hu of hus) {
+        const etiqueta = document.createElement('div');
+        etiqueta.className = 'etiqueta-individual';
+
+        const canvas = document.createElement('canvas');
+        try {
+            new QRious({
+                element: canvas,
+                value: hu.hu,
+                size: 150,
+                foreground: '#000000',
+                background: '#ffffff',
+                level: 'M'
+            });
+        } catch (err) {}
+
+        etiqueta.appendChild(canvas);
+
+        const info = document.createElement('div');
+        info.className = 'etiqueta-info';
+        info.innerHTML = `
+            <div class="etiqueta-hu">${hu.hu}</div>
+            <div class="etiqueta-pacotes">${hu.pacotes} pacotes</div>
+            ${hu.veiculo ? `<div class="etiqueta-veiculo">${isLamina(hu.veiculo) ? 'LAM' : 'POR'} ${normalizarNomeVeiculo(hu.veiculo)}</div>` : ''}
+            <div class="etiqueta-canal">${hu.canalizacao}</div>
+        `;
+        etiqueta.appendChild(info);
+        printDiv.appendChild(etiqueta);
+    }
+
+    document.body.appendChild(printDiv);
+    document.body.classList.add('print-etiquetas-navegador');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('print-etiquetas-navegador');
+        printDiv.remove();
+    }, 500);
+}
+
+// Versao por equipamento (outras impressoras)
+function imprimirEtiquetasNavegadorEquip(vid) {
+    const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
+    if (!eq) return;
+    imprimirEtiquetasNavegador(eq.hus);
+}
+
+// Versao todos (outras impressoras)
+function imprimirTodosEtiquetasNavegador() {
+    const allHUs = equipamentos.flatMap(e => e.hus);
+    imprimirEtiquetasNavegador(allHUs);
 }
 
 // ============================================================
@@ -1662,29 +1732,29 @@ function mostrarSeletorImpressora(printers, hus) {
 
 function enviarEPLParaImpressora(device, hus) {
     // Gera EPL2 para todas as HUs (uma etiqueta por HU)
+    // Etiqueta quadrada ~50x50mm (400x400 dots a 203dpi na GC420t)
     let eplContent = '';
 
     for (const hu of hus) {
-        // EPL2 - cada etiqueta individual
         // N = limpa buffer imagem
         // q400 = largura do label em dots (50mm @ 203dpi = ~400 dots)
-        // Q200,24 = altura do label em dots (25mm @ 203dpi = ~200 dots), gap 24 dots
+        // Q400,24 = altura do label em dots (50mm @ 203dpi = ~400 dots), gap 24 dots
         eplContent += '\nN\n';
         eplContent += 'q400\n';
-        eplContent += 'Q200,24\n';
-        // QR Code: posicao x10 y10, modelo 2, tamanho celula 4
-        eplContent += `b10,10,Q,s4,"${hu.hu}"\n`;
-        // Texto: numero da HU
-        eplContent += `A170,15,0,2,1,1,N,"${hu.hu}"\n`;
+        eplContent += 'Q400,24\n';
+        // QR Code: posicao x50 y20, modelo 2, tamanho celula 6 (maior pra etiqueta quadrada)
+        eplContent += `b50,20,Q,s6,"${hu.hu}"\n`;
+        // Texto: numero da HU (abaixo do QR code)
+        eplContent += `A50,250,0,3,1,1,N,"${hu.hu}"\n`;
         // Texto: pacotes
-        eplContent += `A170,45,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
+        eplContent += `A50,290,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
         // Texto: veiculo/equipamento
         if (hu.veiculo) {
             const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-            eplContent += `A170,75,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
+            eplContent += `A50,320,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
         }
         // Texto: canalizacao
-        eplContent += `A170,105,0,2,1,1,N,"${hu.canalizacao}"\n`;
+        eplContent += `A50,350,0,3,1,1,N,"${hu.canalizacao}"\n`;
         // Imprime 1 copia
         eplContent += 'P1\n';
     }

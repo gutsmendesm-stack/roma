@@ -1029,3 +1029,72 @@ header h1 {
 .modal-box-large .modal-actions {
     justify-content: center;
 }
+
+
+
+/* ============================================================
+   IMPRESSAO DE ETIQUETAS VIA NAVEGADOR (qualquer impressora)
+   Formato: etiqueta quadrada ~50x50mm individual
+   ============================================================ */
+.etiquetas-navegador-print {
+    display: none;
+}
+
+@media print {
+    body.print-etiquetas-navegador .container { display: none !important; }
+    body.print-etiquetas-navegador .etiquetas-navegador-print {
+        display: block !important;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-individual {
+        width: 50mm;
+        height: 50mm;
+        border: 1px solid #000;
+        padding: 3mm;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        page-break-after: always;
+        box-sizing: border-box;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-individual:last-child {
+        page-break-after: auto;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-individual canvas {
+        width: 28mm !important;
+        height: 28mm !important;
+        display: block;
+        margin-bottom: 2mm;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-info {
+        text-align: center;
+        width: 100%;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-hu {
+        font-size: 7pt;
+        font-weight: 700;
+        word-break: break-all;
+        margin-bottom: 1mm;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-pacotes {
+        font-size: 6pt;
+        color: #333;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-veiculo {
+        font-size: 6pt;
+        color: #333;
+    }
+
+    body.print-etiquetas-navegador .etiqueta-canal {
+        font-size: 7pt;
+        font-weight: 700;
+        margin-top: 1mm;
+    }
+}
