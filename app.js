@@ -180,6 +180,10 @@ btnVerExpedidas.addEventListener('click', () => { renderExpedidas(); showStep(6)
 // Impressao - visualizacao por equipamentos
 document.getElementById('btnImprimirTodosEquip').addEventListener('click', imprimirTodosEquipamentosPDF);
 document.getElementById('btnImprimirEtiqNavegador').addEventListener('click', imprimirTodosEtiquetasNavegador);
+document.getElementById('btnTrocarFormato').addEventListener('click', () => {
+    trocarFormatoEtiqueta();
+    imprimirTodosEtiquetasNavegador();
+});
 
 
 // ============================================================
@@ -1545,6 +1549,12 @@ function imprimirTodosEtiquetasNavegador() {
 // FORMATO DA ETIQUETA
 // ============================================================
 let etiquetaFormato = localStorage.getItem('etiquetaFormato') || ''; // 'quadrada' ou 'retangular'
+
+// Funcao para trocar formato manualmente
+function trocarFormatoEtiqueta() {
+    etiquetaFormato = '';
+    localStorage.removeItem('etiquetaFormato');
+}
 
 // ============================================================
 // SELETOR DE FORMATO DA ETIQUETA
