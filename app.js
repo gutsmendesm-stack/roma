@@ -1338,13 +1338,6 @@ function printCarreta(idx) {
     }, 500);
 }
 
-// Impressao de carreta (formato Zebra - etiqueta via Browser Print SDK)
-function printCarretaZebra(idx) {
-    const carreta = carretas['_current'][idx];
-    if (!carreta) return;
-    enviarParaZebra(carreta.hus);
-}
-
 // ============================================================
 // STEP 7 - VISUALIZACAO POR EQUIPAMENTOS (Item 5)
 // ============================================================
@@ -1447,24 +1440,11 @@ function imprimirEquipamentoPDF(vid) {
     }, 500);
 }
 
-// Impressao por equipamento (Zebra EPL via Browser Print SDK)
-function imprimirEquipamentoZebra(vid) {
-    const eq = equipamentos.find(e => normalizarNomeVeiculo(e.veiculo) === vid);
-    if (!eq) return;
-    enviarParaZebra(eq.hus);
-}
-
 // Imprimir TODOS equipamentos em PDF (fallback sem etiquetadora)
 function imprimirTodosEquipamentosPDF() {
     document.body.classList.add('print-equip-all');
     window.print();
     setTimeout(() => document.body.classList.remove('print-equip-all'), 500);
-}
-
-// Imprimir TODOS equipamentos em Zebra EPL via Browser Print SDK
-function imprimirTodosEquipamentosZebra() {
-    const allHUs = equipamentos.flatMap(e => e.hus);
-    enviarParaZebra(allHUs);
 }
 
 // Imprimir etiquetas via navegador (funciona com qualquer impressora)
@@ -1562,47 +1542,9 @@ function imprimirTodosEtiquetasNavegador() {
 }
 
 // ============================================================
-// ZEBRA BROWSER PRINT SDK - Impressao direta de etiquetas
-// Compativel com Zebra GC420t e ZT411 (linguagem EPL2)
-// Requer: Zebra Browser Print Agent instalado no PC
+// FORMATO DA ETIQUETA
 // ============================================================
-let zebraPrinter = null; // impressora selecionada
 let etiquetaFormato = localStorage.getItem('etiquetaFormato') || ''; // 'quadrada' ou 'retangular'
-
-function enviarParaZebra(hus) {
-    // Se nao escolheu formato ainda, pergunta
-    if (!etiquetaFormato) {
-        mostrarSeletorFormato(hus);
-        return;
-    }
-
-    // Se ja tem impressora selecionada, manda direto
-    if (zebraPrinter) {
-        enviarEPLParaImpressora(zebraPrinter, hus);
-        return;
-    }
-
-    // Tenta encontrar impressora via SDK
-    if (typeof BrowserPrint === 'undefined') {
-        mostrarGuiaConfiguracao();
-        return;
-    }
-
-    // Busca impressora padrao
-    BrowserPrint.getDefaultDevice('printer',
-        function(device) {
-            if (device) {
-                zebraPrinter = device;
-                enviarEPLParaImpressora(device, hus);
-            } else {
-                buscarImpressorasZebra(hus);
-            }
-        },
-        function(error) {
-            mostrarGuiaConfiguracao();
-        }
-    );
-}
 
 // ============================================================
 // SELETOR DE FORMATO DA ETIQUETA
@@ -1648,280 +1590,19 @@ function mostrarSeletorFormato(hus) {
         etiquetaFormato = 'quadrada';
         localStorage.setItem('etiquetaFormato', 'quadrada');
         overlay.remove();
-        enviarParaZebra(hus);
+        imprimirEtiquetasNavegador(hus);
     });
 
     overlay.querySelector('#btnFormatoRetangular').addEventListener('click', () => {
         etiquetaFormato = 'retangular';
         localStorage.setItem('etiquetaFormato', 'retangular');
         overlay.remove();
-        enviarParaZebra(hus);
+        imprimirEtiquetasNavegador(hus);
     });
 
     overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
         overlay.remove();
     });
-}
-
-// ============================================================
-// GUIA DE CONFIGURACAO DA IMPRESSORA (passo a passo simples)
-// ============================================================
-function mostrarGuiaConfiguracao() {
-    const existing = document.getElementById('customModal');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'customModal';
-    overlay.className = 'modal-overlay';
-
-    overlay.innerHTML = `
-        <div class="modal-box modal-box-large">
-            <div class="modal-icon">🖨️</div>
-            <h2 class="modal-title">Configurar Impressora de Etiquetas</h2>
-            <p class="modal-message">Siga os passos abaixo para conectar sua Zebra. É só na primeira vez!</p>
-
-            <div class="setup-steps">
-                <div class="setup-step">
-                    <div class="setup-step-number">1</div>
-                    <div class="setup-step-content">
-                        <strong>Baixe o programa</strong>
-                        <p>Clique no botão abaixo para baixar o conector da Zebra (é rápido):</p>
-                        <a href="https://www.zebra.com/us/en/support-downloads/printer-software/by-request-software.html" target="_blank" class="btn btn-primary btn-sm">⬇️ Baixar Zebra Browser Print</a>
-                    </div>
-                </div>
-
-                <div class="setup-step">
-                    <div class="setup-step-number">2</div>
-                    <div class="setup-step-content">
-                        <strong>Instale e abra o programa</strong>
-                        <p>Execute o arquivo baixado e siga a instalação normal (Próximo, Próximo, Concluir). O programa vai abrir automaticamente.</p>
-                    </div>
-                </div>
-
-                <div class="setup-step">
-                    <div class="setup-step-number">3</div>
-                    <div class="setup-step-content">
-                        <strong>Libere o acesso no navegador</strong>
-                        <p>Clique no botão abaixo, vai abrir uma página com aviso de segurança. Clique em <strong>"Avançado"</strong> e depois <strong>"Continuar"</strong>.</p>
-                        <a href="https://localhost:9101/ssl_support" target="_blank" class="btn btn-warning btn-sm">🔓 Liberar Acesso</a>
-                    </div>
-                </div>
-
-                <div class="setup-step">
-                    <div class="setup-step-number">4</div>
-                    <div class="setup-step-content">
-                        <strong>Pronto! Teste a impressora</strong>
-                        <p>Depois de liberar, clique em "Testar Conexão" abaixo:</p>
-                        <button class="btn btn-success btn-sm" id="btnTestarZebra">✅ Testar Conexão</button>
-                        <span id="zebraTestResult" class="setup-test-result"></span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-actions" style="margin-top: 20px;">
-                <button class="btn btn-secondary modal-btn-cancel">Fechar</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // Botao fechar
-    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => {
-        overlay.remove();
-    });
-
-    // Botao testar
-    overlay.querySelector('#btnTestarZebra').addEventListener('click', () => {
-        testarConexaoZebra();
-    });
-
-    // ESC fecha
-    const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            overlay.remove();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
-}
-
-function testarConexaoZebra() {
-    const resultEl = document.getElementById('zebraTestResult');
-    resultEl.textContent = '⏳ Testando...';
-    resultEl.style.color = '#555';
-
-    if (typeof BrowserPrint === 'undefined') {
-        resultEl.textContent = '❌ Programa não detectado. Verifique se instalou e abriu o Zebra Browser Print.';
-        resultEl.style.color = '#dc2626';
-        return;
-    }
-
-    BrowserPrint.getDefaultDevice('printer',
-        function(device) {
-            if (device) {
-                zebraPrinter = device;
-                resultEl.textContent = `✅ Conectado! Impressora: ${device.name || device.uid || 'Zebra'}`;
-                resultEl.style.color = '#059669';
-            } else {
-                BrowserPrint.getLocalDevices(
-                    function(devices) {
-                        let printers = [];
-                        if (Array.isArray(devices)) printers = devices;
-                        else if (devices && devices.printer) printers = devices.printer;
-
-                        if (printers.length > 0) {
-                            zebraPrinter = printers[0];
-                            resultEl.textContent = `✅ Conectado! Impressora: ${printers[0].name || printers[0].uid || 'Zebra'}`;
-                            resultEl.style.color = '#059669';
-                        } else {
-                            resultEl.textContent = '⚠️ Programa conectado, mas nenhuma impressora encontrada. A Zebra está ligada?';
-                            resultEl.style.color = '#d97706';
-                        }
-                    },
-                    function() {
-                        resultEl.textContent = '❌ Não conseguiu buscar impressoras. Tente liberar o acesso (passo 3).';
-                        resultEl.style.color = '#dc2626';
-                    },
-                    'printer'
-                );
-            }
-        },
-        function(error) {
-            resultEl.textContent = '❌ Sem comunicação. Verifique se o programa está aberto e se liberou o acesso (passo 3).';
-            resultEl.style.color = '#dc2626';
-        }
-    );
-}
-
-function buscarImpressorasZebra(hus) {
-    BrowserPrint.getLocalDevices(
-        function(devices) {
-            let printers = [];
-            if (Array.isArray(devices)) {
-                printers = devices;
-            } else if (devices && devices.printer) {
-                printers = devices.printer;
-            } else if (devices && typeof devices === 'object') {
-                try { printers = Array.from(devices); } catch(e) { printers = []; }
-            }
-
-            if (printers.length === 0) {
-                mostrarErroZebra('Nenhuma impressora Zebra encontrada na rede.');
-                return;
-            }
-
-            if (printers.length === 1) {
-                zebraPrinter = printers[0];
-                enviarEPLParaImpressora(printers[0], hus);
-            } else {
-                // Multiplas impressoras - deixa usuario escolher
-                mostrarSeletorImpressora(printers, hus);
-            }
-        },
-        function(error) {
-            mostrarErroZebra(error);
-        },
-        'printer'
-    );
-}
-
-function mostrarSeletorImpressora(printers, hus) {
-    const lista = printers.map((p, i) => `<button class="btn btn-primary modal-printer-btn" data-idx="${i}" style="margin:5px;display:block;width:100%">${p.name || p.uid || 'Impressora ' + (i+1)}</button>`).join('');
-
-    showModal(
-        'Selecione a Impressora',
-        `Foram encontradas <strong>${printers.length}</strong> impressoras Zebra:<br><br>${lista}`,
-        'info',
-        null,
-        null
-    );
-
-    // Adiciona evento nos botoes apos o modal aparecer
-    setTimeout(() => {
-        document.querySelectorAll('.modal-printer-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const idx = parseInt(btn.dataset.idx);
-                zebraPrinter = printers[idx];
-                const modal = document.getElementById('customModal');
-                if (modal) modal.remove();
-                enviarEPLParaImpressora(printers[idx], hus);
-            });
-        });
-    }, 100);
-}
-
-function enviarEPLParaImpressora(device, hus) {
-    // Gera EPL2 para todas as HUs (uma etiqueta por HU)
-    // Formato depende da escolha do usuario
-    const isQuadrada = etiquetaFormato === 'quadrada';
-    // Quadrada: 100x100mm = 812x812 dots @ 203dpi
-    // Retangular: 100x50mm = 812x406 dots @ 203dpi
-    const larguraLabel = 812;
-    const alturaLabel = isQuadrada ? 812 : 406;
-    const cellSize = isQuadrada ? 10 : 6;
-
-    let eplContent = '';
-
-    for (const hu of hus) {
-        eplContent += '\nN\n';
-        eplContent += `q${larguraLabel}\n`;
-        eplContent += `Q${alturaLabel},24\n`;
-
-        if (isQuadrada) {
-            // Quadrada 100x100mm: QR grande centralizado em cima, texto embaixo
-            // QR code centralizado: x ~200, y 30, cell size 10 (QR ~300x300 dots)
-            eplContent += `b200,30,Q,s${cellSize},"${hu.hu}"\n`;
-            // Textos embaixo do QR
-            eplContent += `A50,520,0,4,1,1,N,"${hu.hu}"\n`;
-            eplContent += `A50,580,0,3,1,1,N,"${hu.pacotes} pacotes"\n`;
-            if (hu.veiculo) {
-                const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-                eplContent += `A50,630,0,3,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
-            }
-            eplContent += `A50,690,0,4,1,1,N,"${hu.canalizacao}"\n`;
-        } else {
-            // Retangular 100x50mm: QR na esquerda, textos na direita
-            // QR code: x 30, y 30, cell size 6 (QR ~200x200 dots)
-            eplContent += `b30,30,Q,s${cellSize},"${hu.hu}"\n`;
-            // Textos do lado direito
-            eplContent += `A320,40,0,3,1,1,N,"${hu.hu}"\n`;
-            eplContent += `A320,100,0,2,1,1,N,"${hu.pacotes} pacotes"\n`;
-            if (hu.veiculo) {
-                const tipo = isLamina(hu.veiculo) ? 'LAM' : 'POR';
-                eplContent += `A320,150,0,2,1,1,N,"${tipo} ${normalizarNomeVeiculo(hu.veiculo)}"\n`;
-            }
-            eplContent += `A320,210,0,3,1,1,N,"${hu.canalizacao}"\n`;
-        }
-
-        eplContent += 'P1\n';
-    }
-
-    // Envia pro dispositivo via Browser Print SDK
-    device.send(eplContent,
-        function() {
-            showModal(
-                'Etiquetas Enviadas!',
-                `<strong>${hus.length}</strong> etiqueta(s) enviada(s) para a impressora <strong>${device.name || 'Zebra'}</strong>.<br><br>Formato: <strong>${isQuadrada ? 'Quadrada 100x100mm' : 'Retangular 100x50mm'}</strong>`,
-                'success',
-                null,
-                null
-            );
-        },
-        function(error) {
-            showModal(
-                'Erro na Impressão',
-                `Não foi possível enviar para a impressora.<br><br>Erro: ${error || 'Conexão recusada'}<br><br>Verifique se a impressora está ligada e conectada.`,
-                'error',
-                null,
-                null
-            );
-        }
-    );
-}
-
-function mostrarErroZebra(error) {
-    mostrarGuiaConfiguracao();
 }
 
 // ============================================================
