@@ -760,6 +760,17 @@ function renderAllQRCodes() {
         btn.textContent = `Imprimir ${key}`;
         btn.addEventListener('click', () => printCanalizacao(key));
         printActions.appendChild(btn);
+
+        // Botao etiqueta por canalizacao
+        const btnEtiqCanal = document.createElement('button');
+        btnEtiqCanal.className = 'btn';
+        btnEtiqCanal.style.background = '#d97706';
+        btnEtiqCanal.style.color = 'white';
+        btnEtiqCanal.textContent = `🏷️ Etiquetas ${key}`;
+        btnEtiqCanal.addEventListener('click', () => {
+            imprimirEtiquetasNavegador(parsedData[key]);
+        });
+        printActions.appendChild(btnEtiqCanal);
     }
     if (keys.length > 1) {
         const btnAll = document.createElement('button');
@@ -774,6 +785,19 @@ function renderAllQRCodes() {
         });
         printActions.appendChild(btnAll);
     }
+
+    // Botao Imprimir Etiquetas (todas as HUs de todas as canalizacoes)
+    const btnEtiq = document.createElement('button');
+    btnEtiq.className = 'btn';
+    btnEtiq.style.background = '#d97706';
+    btnEtiq.style.color = 'white';
+    btnEtiq.textContent = '🏷️ Imprimir Etiquetas';
+    btnEtiq.addEventListener('click', () => {
+        const allHUs = keys.flatMap(k => parsedData[k]);
+        imprimirEtiquetasNavegador(allHUs);
+    });
+    printActions.appendChild(btnEtiq);
+
     container.appendChild(printActions);
 
     for (let i = 0; i < keys.length; i++) {
