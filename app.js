@@ -1472,7 +1472,7 @@ function imprimirEtiquetasNavegador(hus) {
             new QRious({
                 element: canvas,
                 value: hu.hu,
-                size: etiquetaFormato === 'quadrada' ? 250 : 150,
+                size: 300,
                 foreground: '#000000',
                 background: '#ffffff',
                 level: 'M'
@@ -1481,14 +1481,36 @@ function imprimirEtiquetasNavegador(hus) {
 
         etiqueta.appendChild(canvas);
 
+        // Info reorganizada pra preencher bem a etiqueta
         const info = document.createElement('div');
         info.className = 'etiqueta-info';
-        info.innerHTML = `
-            <div class="etiqueta-hu">${hu.hu}</div>
-            <div class="etiqueta-pacotes">${hu.pacotes} pacotes</div>
-            ${hu.veiculo ? `<div class="etiqueta-veiculo">${isLamina(hu.veiculo) ? 'LAM' : 'POR'} ${normalizarNomeVeiculo(hu.veiculo)}</div>` : ''}
-            <div class="etiqueta-canal">${hu.canalizacao}</div>
-        `;
+
+        // Canalizacao em destaque no topo das infos (mais importante pra identificar rapido)
+        const canalDiv = document.createElement('div');
+        canalDiv.className = 'etiqueta-canal';
+        canalDiv.textContent = hu.canalizacao;
+        info.appendChild(canalDiv);
+
+        // Numero da HU
+        const huDiv = document.createElement('div');
+        huDiv.className = 'etiqueta-hu';
+        huDiv.textContent = hu.hu;
+        info.appendChild(huDiv);
+
+        // Pacotes
+        const pctDiv = document.createElement('div');
+        pctDiv.className = 'etiqueta-pacotes';
+        pctDiv.textContent = `${hu.pacotes} pacotes`;
+        info.appendChild(pctDiv);
+
+        // Veiculo/Equipamento
+        if (hu.veiculo) {
+            const veicDiv = document.createElement('div');
+            veicDiv.className = 'etiqueta-veiculo';
+            veicDiv.textContent = `${getVeiculoIcon(hu.veiculo)} ${normalizarNomeVeiculo(hu.veiculo)}`;
+            info.appendChild(veicDiv);
+        }
+
         etiqueta.appendChild(info);
         printDiv.appendChild(etiqueta);
     }
