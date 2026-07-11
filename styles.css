@@ -1054,6 +1054,8 @@ header h1 {
         display: block !important;
         margin: 0;
         padding: 0;
+        width: 100%;
+        text-align: center;
     }
 }
 
@@ -1078,8 +1080,8 @@ body.print-etiquetas-navegador { margin: 0 !important; padding: 0 !important; }
         page: etiqueta-quad;
         width: 100mm;
         height: 100mm;
-        padding: 3mm;
-        margin: 0;
+        padding: 0;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1134,8 +1136,8 @@ body.print-etiquetas-navegador { margin: 0 !important; padding: 0 !important; }
         page: etiqueta;
         width: 50mm;
         height: 152mm;
-        padding: 3mm;
-        margin: 0;
+        padding: 0;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
         align-items: center;
