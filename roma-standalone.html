@@ -1000,9 +1000,9 @@ header h1 {
     }
 
     body.print-etiquetas-navegador .etiqueta-individual.etiqueta-quadrada {
-        width: 100vw;
-        height: 100vh;
-        padding: 0;
+        width: 100mm;
+        height: 100mm;
+        padding: 3mm;
         margin: 0;
         display: flex;
         flex-direction: column;
@@ -1013,11 +1013,10 @@ header h1 {
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada canvas {
-        width: 65vw !important;
-        height: 65vw !important;
-        max-height: 55vh !important;
+        width: 60mm !important;
+        height: 60mm !important;
         display: block;
-        margin-bottom: 2vh;
+        margin-bottom: 3mm;
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada .etiqueta-info {
@@ -1026,52 +1025,51 @@ header h1 {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1vh;
+        gap: 2mm;
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada .etiqueta-canal {
-        font-size: 6vw;
+        font-size: 22pt;
         font-weight: 900;
         border: 3px solid #000;
-        padding: 2px 10px;
+        padding: 2mm 5mm;
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada .etiqueta-hu {
-        font-size: 3.5vw;
+        font-size: 11pt;
         font-weight: 800;
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada .etiqueta-pacotes {
-        font-size: 4.5vw;
+        font-size: 16pt;
         font-weight: 900;
         color: #000;
     }
 
     body.print-etiquetas-navegador .etiqueta-quadrada .etiqueta-veiculo {
-        font-size: 4vw;
+        font-size: 14pt;
         font-weight: 800;
         color: #000;
     }
 
 
     body.print-etiquetas-navegador .etiqueta-individual.etiqueta-retangular {
-        width: 100vw;
-        height: 100vh;
-        padding: 0;
+        width: 50mm;
+        height: 152mm;
+        padding: 3mm;
         margin: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 2vh;
+        gap: 3mm;
         page-break-after: always;
         box-sizing: border-box;
     }
 
     body.print-etiquetas-navegador .etiqueta-retangular canvas {
-        width: 60vw !important;
-        height: 60vw !important;
-        max-height: 45vh !important;
+        width: 38mm !important;
+        height: 38mm !important;
         display: block;
     }
 
@@ -1080,29 +1078,29 @@ header h1 {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1vh;
+        gap: 3mm;
     }
 
     body.print-etiquetas-navegador .etiqueta-retangular .etiqueta-canal {
-        font-size: 5.5vw;
+        font-size: 20pt;
         font-weight: 900;
         border: 3px solid #000;
-        padding: 2px 8px;
+        padding: 2mm 5mm;
     }
 
     body.print-etiquetas-navegador .etiqueta-retangular .etiqueta-hu {
-        font-size: 3vw;
+        font-size: 10pt;
         font-weight: 800;
     }
 
     body.print-etiquetas-navegador .etiqueta-retangular .etiqueta-pacotes {
-        font-size: 4vw;
+        font-size: 16pt;
         font-weight: 900;
         color: #000;
     }
 
     body.print-etiquetas-navegador .etiqueta-retangular .etiqueta-veiculo {
-        font-size: 3.5vw;
+        font-size: 14pt;
         font-weight: 800;
         color: #000;
     }
@@ -2872,7 +2870,7 @@ function mostrarSeletorFormato(hus) {
                 <button class="btn-formato" id="btnFormatoRetangular">
                     <div class="formato-preview formato-retangular"></div>
                     <strong>Retangular</strong>
-                    <span>100 x 50 mm (10x5cm)</span>
+                    <span>50 x 152 mm (5x15cm)</span>
                 </button>
             </div>
 

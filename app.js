@@ -1584,7 +1584,7 @@ function mostrarSeletorFormato(hus) {
                 <button class="btn-formato" id="btnFormatoRetangular">
                     <div class="formato-preview formato-retangular"></div>
                     <strong>Retangular</strong>
-                    <span>100 x 50 mm (10x5cm)</span>
+                    <span>50 x 152 mm (5x15cm)</span>
                 </button>
             </div>
 
