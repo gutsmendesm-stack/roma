@@ -1817,9 +1817,13 @@ function normalizarNomeVeiculo(veiculo) {
     if (!veiculo) return 'SEM_VEICULO';
     let nome = veiculo.trim().replace(/\s+/g, ' ').toUpperCase();
     nome = nome.replace(/\b0+(\d+)/g, '$1');
-    nome = nome.replace(/\s+G\s*$/i, ' G3');
-    if (/^(PAG|PKC)\s+\d+$/.test(nome)) {
-        nome = nome + ' G3';
+    // Remove sufixo de companhia aerea (G3, VRG, G) no final
+    // "PAG 6076 VRG" e "PAG 6076 G3" viram "PAG 6076"
+    if (/^PAG\s/.test(nome)) {
+        nome = nome.replace(/\s+(G3|VRG|G)\s*$/i, '');
+    }
+    if (/^PKC\s/.test(nome)) {
+        nome = nome.replace(/\s+(G3|VRG|G)\s*$/i, '');
     }
     return nome;
 }

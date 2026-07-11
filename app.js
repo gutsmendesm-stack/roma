@@ -480,13 +480,15 @@ function normalizarNomeVeiculo(veiculo) {
     // Remove zeros a esquerda de sequencias numericas
     // "PAG 00044 G3" -> "PAG 44 G3", "PAG 000266 G3" -> "PAG 266 G3"
     nome = nome.replace(/\b0+(\d+)/g, '$1');
-    // Normaliza sufixo G/G3: "PAG 179 G3" e "PAG 179 G" e "PAG 179" viram "PAG 179 G3"
-    // Se termina com " G" (sem numero), adiciona "3" pra virar "G3"
-    nome = nome.replace(/\s+G\s*$/i, ' G3');
-    // Se NAO tem sufixo G3 mas eh PAG/PKC com numero, adiciona G3
-    // Ex: "PAG 902" -> "PAG 902 G3" (mesmo equipamento que "PAG 902 G3")
-    if (/^(PAG|PKC)\s+\d+$/.test(nome)) {
-        nome = nome + ' G3';
+    // Remove sufixo de companhia aerea (G3, VRG, G) no final
+    // "PAG 6076 VRG" e "PAG 6076 G3" viram "PAG 6076"
+    // "DNA 5473 C 1" fica "DNA 5473 C 1" (nao mexe em DNA/FOS/PKC com sufixos operacionais)
+    if (/^PAG\s/.test(nome)) {
+        // Remove sufixos: G3, VRG, G (companhias aereas)
+        nome = nome.replace(/\s+(G3|VRG|G)\s*$/i, '');
+    }
+    if (/^PKC\s/.test(nome)) {
+        nome = nome.replace(/\s+(G3|VRG|G)\s*$/i, '');
     }
     return nome;
 }
