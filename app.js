@@ -397,6 +397,8 @@ function showModal(titulo, mensagem, tipo, onConfirm, onCancel) {
 function parseRomaneios(pagesText) {
     const result = {};
     let currentMeta = null;
+    // Set para deduplicar HUs repetidas (PDFs podem ter paginas duplicadas)
+    const husJaParseadas = new Set();
 
     for (const pageText of pagesText) {
         const hasMetadata = /Ve[ií]culo:/i.test(pageText);
@@ -432,6 +434,10 @@ function parseRomaneios(pagesText) {
         let match;
         while ((match = containerPattern.exec(pageText)) !== null) {
             const hu = match[1];
+            // Ignora HU se ja foi parseada antes (pagina duplicada no PDF)
+            if (husJaParseadas.has(hu)) continue;
+            husJaParseadas.add(hu);
+
             const pacotes = parseInt(match[2]);
             const canalizacao = match[3].toUpperCase();
 
