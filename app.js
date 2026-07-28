@@ -430,7 +430,10 @@ function parseRomaneios(pagesText) {
 
         const meta = currentMeta || { romaneioId: '', veiculo: '', lacre: '', doca: '', operador: '', horario: '' };
 
-        const containerPattern = /(\d{10,19})\s*(?:\[master\])?\s+(\d+)\s+([A-Z][A-Z0-9]{1,10}_[A-Z0-9]+)/gi;
+        // Regex que aceita AMBOS os formatos:
+        // Formato antigo: "2422721734191153 [master] 810 SAL1_A"
+        // Formato novo:   "2422719057864511 [master] HU 57 SSE1_B"
+        const containerPattern = /(\d{10,19})\s*(?:\[master\])?\s+(?:HU\s+)?(\d+)\s+([A-Z][A-Z0-9]{1,10}_[A-Z0-9]+)/gi;
         let match;
         while ((match = containerPattern.exec(pageText)) !== null) {
             const hu = match[1];
