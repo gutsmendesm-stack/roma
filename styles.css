@@ -1263,3 +1263,55 @@ body.print-etiquetas-navegador { margin: 0 !important; padding: 0 !important; }
     color: #9ca3af;
     margin-top: 10px;
 }
+
+
+
+/* Botao vermelho (danger) para modais de aviso */
+.btn-danger {
+    background: #dc2626 !important;
+    color: white !important;
+    font-weight: 700;
+}
+
+.btn-danger:hover {
+    background: #b91c1c !important;
+}
+
+/* Input de hora no recebimento */
+.recebimento-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.input-hora-recebimento {
+    padding: 6px 10px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    width: 90px;
+}
+
+.input-hora-recebimento:focus {
+    border-color: #10b981;
+    outline: none;
+}
+
+/* Botao de remover canalizacao */
+.btn-merge-remove {
+    position: relative;
+}
+
+.btn-merge-remove:hover {
+    background: #fef2f2 !important;
+    border-color: #dc2626 !important;
+    color: #dc2626 !important;
+}
+
+/* Canal badge com info de pacotes */
+.canal-badge small {
+    display: block;
+    font-size: 0.7rem;
+    opacity: 0.9;
+    margin-top: 2px;
+}

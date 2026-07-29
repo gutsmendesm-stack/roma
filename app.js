@@ -348,9 +348,12 @@ function showModal(titulo, mensagem, tipo, onConfirm, onCancel) {
 
     // Se nao tem onConfirm E nao tem onCancel, mostra so botao OK
     const soOk = !onConfirm && !onCancel;
+    // Botao de confirmar fica VERMELHO em avisos (warning) pra destacar o risco
+    const btnConfirmClass = tipo === 'warning' ? 'btn btn-danger modal-btn-confirm' : 'btn btn-primary modal-btn-confirm';
+    const btnConfirmText = soOk ? 'OK' : 'Sim, estou ciente e desejo continuar';
     const botoesHtml = soOk
-        ? `<button class="btn btn-primary modal-btn-confirm">OK</button>`
-        : `<button class="btn btn-primary modal-btn-confirm">Sim, continuar</button>
+        ? `<button class="${btnConfirmClass}">${btnConfirmText}</button>`
+        : `<button class="${btnConfirmClass}">${btnConfirmText}</button>
            <button class="btn btn-secondary modal-btn-cancel">Cancelar</button>`;
 
     overlay.innerHTML = `
@@ -538,7 +541,8 @@ function renderHubSummary() {
             ${keys.map(k => {
                 const c = getCanalizacaoColor(k);
                 const cnt = parsedData[k].length;
-                return `<span class="canal-badge" style="background:${c.main}">${k} (${cnt})</span>`;
+                const pcts = parsedData[k].reduce((s, h) => s + h.pacotes, 0);
+                return `<span class="canal-badge" style="background:${c.main}">${k}<br><small>${cnt} HUs · ${pcts.toLocaleString('pt-BR')} pcts</small></span>`;
             }).join(' ')}
         </div>
     `;
@@ -627,20 +631,30 @@ function criarItemRecebimento(eq) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${totalHUs} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts · ${canaisStr}</span>
             </div>
-            <button class="btn-chegou">Registrar Recebimento</button>
+            <div class="recebimento-actions">
+                <input type="time" class="input-hora-recebimento" value="${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}">
+                <button class="btn-chegou">Registrar Recebimento</button>
+            </div>
         `;
         item.querySelector('.btn-chegou').addEventListener('click', () => {
-            registrarChegada(vid);
+            const horaInput = item.querySelector('.input-hora-recebimento').value;
+            registrarChegada(vid, horaInput);
         });
     }
     return item;
 }
 
 
-function registrarChegada(veiculoId) {
+function registrarChegada(veiculoId, horaManual) {
     recebimentoOrdem++;
+    // Se passou hora manual, usa ela com a data de hoje
+    let horaRegistro = new Date();
+    if (horaManual) {
+        const [h, m] = horaManual.split(':');
+        horaRegistro.setHours(parseInt(h), parseInt(m), 0, 0);
+    }
     recebimentoState.chegados[veiculoId] = {
-        hora: new Date(),
+        hora: horaRegistro,
         ordem: recebimentoOrdem
     };
     renderRecebimento();
@@ -982,7 +996,7 @@ function renderCarregamento() {
 
     // Placa input
     carretaPlacaInput.innerHTML = `
-        <label>Placa da carreta:</label>
+        <label>Placa do veículo:</label>
         <input type="text" class="input-placa" id="inputPlacaAtual" value="${carreta.placa}" placeholder="Digite a placa...">
     `;
     const placaInput = document.getElementById('inputPlacaAtual');
@@ -1013,6 +1027,28 @@ function renderAddCanalizacao(grupoAtual) {
     }
     mergeContainer.innerHTML = '';
 
+    // Mostra canalizacoes ja adicionadas COM botao de remover
+    if (grupoAtual.length > 0) {
+        const removeWrapper = document.createElement('div');
+        removeWrapper.className = 'merge-wrapper';
+        removeWrapper.innerHTML = `<span class="merge-label">Canalizações nesta carreta:</span>`;
+
+        for (const canal of grupoAtual) {
+            const color = getCanalizacaoColor(canal);
+            const btn = document.createElement('button');
+            btn.className = 'btn-merge btn-merge-remove';
+            btn.style.borderColor = color.main;
+            btn.style.color = color.main;
+            btn.style.background = color.light;
+            btn.textContent = `✕ ${canal}`;
+            btn.title = `Remover ${canal} desta carreta`;
+            btn.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
+            removeWrapper.appendChild(btn);
+        }
+        mergeContainer.appendChild(removeWrapper);
+    }
+
+    // Botoes de adicionar novas canalizacoes
     const available = carregamentoState.canalizacoesOrdem.filter(canal => {
         if (grupoAtual.includes(canal)) return false;
         return equipamentos.some(eq => {
@@ -1038,6 +1074,22 @@ function renderAddCanalizacao(grupoAtual) {
         wrapper.appendChild(btn);
     }
     mergeContainer.appendChild(wrapper);
+}
+
+// Remove canalizacao da carreta (devolve HUs dessa canalizacao)
+function removeCanalizacaoDaCarreta(canal) {
+    // Remove do grupo atual
+    carregamentoState.grupoAtual = carregamentoState.grupoAtual.filter(c => c !== canal);
+    // Remove da carreta
+    const carreta = getCarretaAtual();
+    carreta.canalizacoes = carreta.canalizacoes.filter(c => c !== canal);
+    // Remove HUs dessa canalizacao da carreta
+    carreta.hus = carreta.hus.filter(h => h.canalizacao !== canal);
+    // Recalcula ordemEquipamentos (remove equipamentos que nao tem mais HUs na carreta)
+    carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => {
+        return carreta.hus.some(h => normalizarNomeVeiculo(h.veiculo) === v);
+    });
+    renderCarregamento();
 }
 
 function addCanalizacaoToCarreta(canal) {
@@ -1210,7 +1262,7 @@ function updateCarregamentoButtons() {
 function validarPlacaAtual() {
     const carreta = getCarretaAtual();
     if (!carreta.placa || carreta.placa.trim() === '') {
-        alert('⚠️ Preencha a placa da carreta antes de continuar!');
+        alert('⚠️ Preencha a placa do veículo antes de continuar!');
         const placaInput = document.getElementById('inputPlacaAtual');
         if (placaInput) {
             placaInput.focus();
