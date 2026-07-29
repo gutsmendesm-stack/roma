@@ -1118,35 +1118,7 @@ function renderEquipamentosExpedicao(grupo) {
         return;
     }
 
-    const carreta = getCarretaAtual();
-
-    // Primeiro: mostra equipamentos JA ALOCADOS com X pra remover
-    if (carreta.ordemEquipamentos.length > 0) {
-        for (const v of carreta.ordemEquipamentos) {
-            const eq = equipamentos.find(e => e.veiculo === v);
-            if (!eq) continue;
-            const husAlocadas = carreta.hus.filter(h => normalizarNomeVeiculo(h.veiculo) === v);
-            const totalPcts = husAlocadas.reduce((s, h) => s + h.pacotes, 0);
-            const icon = getVeiculoIcon(v);
-
-            const item = document.createElement('div');
-            item.className = 'equipamento-item recebido';
-            item.innerHTML = `
-                <div class="eq-info">
-                    <button class="btn-remover-equip" title="Remover ${v}">&#10005;</button>
-                    <span class="eq-icon">${icon}</span>
-                    <span class="eq-veiculo">${v || 'Sem veículo'}</span>
-                    <span class="eq-detail">${husAlocadas.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
-                </div>
-            `;
-            item.querySelector('.btn-remover-equip').addEventListener('click', () => {
-                removerEquipamentoDaCarreta(v, carregamentoState.carretaAtualIdx);
-            });
-            equipamentosLista.appendChild(item);
-        }
-    }
-
-    // Depois: equipamentos que AINDA NAO foram alocados
+    // Filtra equipamentos que tem HUs nao alocadas para o grupo atual
     let aguardando = equipamentos.filter(eq => {
         return grupo.some(canal => {
             if (!eq.canalizacoes[canal]) return false;
@@ -1192,10 +1164,23 @@ function renderEquipamentosExpedicao(grupo) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${husCanal.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts${horaStr}</span>
             </div>
-            <button class="btn-alocar">Alocar no Veículo</button>
+            <div class="eq-actions-row">
+                <button class="btn-alocar">Alocar no Veículo</button>
+                <button class="btn-remover-equip" title="Remover da lista">&#10005;</button>
+            </div>
         `;
         item.querySelector('.btn-alocar').addEventListener('click', () => {
             alocarEquipamentoNaCarreta(eq.veiculo, grupo);
+        });
+        item.querySelector('.btn-remover-equip').addEventListener('click', () => {
+            // Remove todas as canalizacoes desse equipamento do grupo atual
+            const canaisDoEquip = Object.keys(eq.canalizacoes);
+            for (const canal of canaisDoEquip) {
+                if (carregamentoState.grupoAtual.includes(canal)) {
+                    removeCanalizacaoDaCarreta(canal);
+                    return; // re-render vai ser chamado
+                }
+            }
         });
         equipamentosLista.appendChild(item);
     }
@@ -1253,12 +1238,8 @@ function renderCarretaConteudo(key, carretaIdx) {
             <div class="equip-group-header">
                 <span>${ordem}º ${icon} ${v || 'Sem veículo'}</span>
                 <span>${hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
-                <button class="btn-remover-equip" title="Remover">&#10005;</button>
             </div>
         `;
-        group.querySelector('.btn-remover-equip').addEventListener('click', () => {
-            removerEquipamentoDaCarreta(v, carretaIdx);
-        });
         carretaConteudo.appendChild(group);
         ordem++;
     }

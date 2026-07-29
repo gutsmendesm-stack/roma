@@ -1315,3 +1315,12 @@ body.print-etiquetas-navegador { margin: 0 !important; padding: 0 !important; }
     opacity: 0.9;
     margin-top: 2px;
 }
+
+
+
+/* Linha de ações do equipamento (Alocar + X) */
+.eq-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
