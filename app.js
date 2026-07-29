@@ -1027,27 +1027,19 @@ function renderAddCanalizacao(grupoAtual) {
     }
     mergeContainer.innerHTML = '';
 
-    // Mostra canalizacoes ja adicionadas com visual igual ao painel de equipamentos
+    // Mostra canalizacoes ja adicionadas (badges simples)
     if (grupoAtual.length > 0) {
         const removeWrapper = document.createElement('div');
-        removeWrapper.className = 'canalizacoes-adicionadas';
+        removeWrapper.className = 'merge-wrapper';
+        removeWrapper.innerHTML = `<span class="merge-label">Canalizações neste veículo:</span>`;
 
         for (const canal of grupoAtual) {
             const color = getCanalizacaoColor(canal);
-            const item = document.createElement('div');
-            item.className = 'carreta-equip-group';
-            item.style.borderLeftColor = color.main;
-            item.innerHTML = `
-                <div class="equip-group-header">
-                    <span style="color:${color.main};font-weight:700">📦 ${canal}</span>
-                    <span></span>
-                    <button class="btn-remover-equip" title="Remover ${canal}">&#10005;</button>
-                </div>
-            `;
-            item.querySelector('.btn-remover-equip').addEventListener('click', () => {
-                removeCanalizacaoDaCarreta(canal);
-            });
-            removeWrapper.appendChild(item);
+            const badge = document.createElement('span');
+            badge.className = 'canal-badge';
+            badge.style.background = color.main;
+            badge.textContent = canal;
+            removeWrapper.appendChild(badge);
         }
         mergeContainer.appendChild(removeWrapper);
     }
@@ -1126,7 +1118,35 @@ function renderEquipamentosExpedicao(grupo) {
         return;
     }
 
-    // Filtra equipamentos que tem HUs nao alocadas para o grupo atual
+    const carreta = getCarretaAtual();
+
+    // Primeiro: mostra equipamentos JA ALOCADOS com X pra remover
+    if (carreta.ordemEquipamentos.length > 0) {
+        for (const v of carreta.ordemEquipamentos) {
+            const eq = equipamentos.find(e => e.veiculo === v);
+            if (!eq) continue;
+            const husAlocadas = carreta.hus.filter(h => normalizarNomeVeiculo(h.veiculo) === v);
+            const totalPcts = husAlocadas.reduce((s, h) => s + h.pacotes, 0);
+            const icon = getVeiculoIcon(v);
+
+            const item = document.createElement('div');
+            item.className = 'equipamento-item recebido';
+            item.innerHTML = `
+                <div class="eq-info">
+                    <button class="btn-remover-equip" title="Remover ${v}">&#10005;</button>
+                    <span class="eq-icon">${icon}</span>
+                    <span class="eq-veiculo">${v || 'Sem veículo'}</span>
+                    <span class="eq-detail">${husAlocadas.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+                </div>
+            `;
+            item.querySelector('.btn-remover-equip').addEventListener('click', () => {
+                removerEquipamentoDaCarreta(v, carregamentoState.carretaAtualIdx);
+            });
+            equipamentosLista.appendChild(item);
+        }
+    }
+
+    // Depois: equipamentos que AINDA NAO foram alocados
     let aguardando = equipamentos.filter(eq => {
         return grupo.some(canal => {
             if (!eq.canalizacoes[canal]) return false;
