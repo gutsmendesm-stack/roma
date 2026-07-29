@@ -979,7 +979,7 @@ function renderCarregamento() {
     const carretaNum = carretaIdx + 1;
 
     if (grupo.length === 0) {
-        carregamentoTitle.textContent = 'Nova Carreta';
+        carregamentoTitle.textContent = 'Novo Veículo';
         carregamentoTitle.style.color = '#2c3e50';
     } else {
         const color = getCanalizacaoColor(grupo[0]);
@@ -990,7 +990,7 @@ function renderCarregamento() {
     const totalAlocado = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
     const badgeColor = grupo.length > 0 ? getCanalizacaoColor(grupo[0]).main : '#6b7280';
     carretaAtualInfo.innerHTML = `
-        <span class="badge" style="background:${badgeColor}">Carreta ${carretaNum}</span>
+        <span class="badge" style="background:${badgeColor}">Veículo ${carretaNum}</span>
         <span class="pacotes-counter">${totalAlocado.toLocaleString('pt-BR')} pacotes alocados</span>
     `;
 
@@ -1002,10 +1002,10 @@ function renderCarregamento() {
     const placaInput = document.getElementById('inputPlacaAtual');
     placaInput.addEventListener('input', (e) => {
         carreta.placa = e.target.value.trim();
-        carretaPanelTitle.textContent = carreta.placa || `Carreta ${carretaNum}`;
+        carretaPanelTitle.textContent = carreta.placa || `Veículo ${carretaNum}`;
     });
 
-    carretaPanelTitle.textContent = carreta.placa || `Carreta ${carretaNum}`;
+    carretaPanelTitle.textContent = carreta.placa || `Veículo ${carretaNum}`;
 
     renderEquipamentosExpedicao(grupo);
     renderCarretaConteudo('_current', carretaIdx);
@@ -1031,7 +1031,7 @@ function renderAddCanalizacao(grupoAtual) {
     if (grupoAtual.length > 0) {
         const removeWrapper = document.createElement('div');
         removeWrapper.className = 'merge-wrapper';
-        removeWrapper.innerHTML = `<span class="merge-label">Canalizações nesta carreta:</span>`;
+        removeWrapper.innerHTML = `<span class="merge-label">Canalizações neste veículo:</span>`;
 
         for (const canal of grupoAtual) {
             const color = getCanalizacaoColor(canal);
@@ -1061,7 +1061,7 @@ function renderAddCanalizacao(grupoAtual) {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'merge-wrapper';
-    wrapper.innerHTML = `<span class="merge-label">Adicionar canalização nesta carreta:</span>`;
+    wrapper.innerHTML = `<span class="merge-label">Adicionar canalização neste veículo:</span>`;
 
     for (const canal of available) {
         const color = getCanalizacaoColor(canal);
@@ -1118,7 +1118,7 @@ function renderEquipamentosExpedicao(grupo) {
     equipamentosLista.innerHTML = '';
 
     if (grupo.length === 0) {
-        equipamentosLista.innerHTML = '<p class="empty-carreta">Adicione canalizações nesta carreta usando os botões acima.</p>';
+        equipamentosLista.innerHTML = '<p class="empty-carreta">Adicione canalizações neste veículo usando os botões acima.</p>';
         return;
     }
 
@@ -1339,7 +1339,7 @@ function renderExpedidas() {
         section.dataset.idx = i;
 
         const totalPcts = carreta.hus.reduce((s, h) => s + h.pacotes, 0);
-        const nome = carreta.placa || `Carreta ${i + 1}`;
+        const nome = carreta.placa || `Veículo ${i + 1}`;
 
         const header = document.createElement('div');
         header.className = 'carreta-expedida-header';
