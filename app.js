@@ -1027,19 +1027,27 @@ function renderAddCanalizacao(grupoAtual) {
     }
     mergeContainer.innerHTML = '';
 
-    // Mostra canalizacoes ja adicionadas COM botao de remover
+    // Mostra canalizacoes ja adicionadas com visual igual ao painel de equipamentos
     if (grupoAtual.length > 0) {
         const removeWrapper = document.createElement('div');
-        removeWrapper.className = 'merge-wrapper';
-        removeWrapper.innerHTML = `<span class="merge-label">Canalizações neste veículo:</span>`;
+        removeWrapper.className = 'canalizacoes-adicionadas';
 
         for (const canal of grupoAtual) {
             const color = getCanalizacaoColor(canal);
-            const badge = document.createElement('span');
-            badge.className = 'canal-badge';
-            badge.style.background = color.main;
-            badge.textContent = canal;
-            removeWrapper.appendChild(badge);
+            const item = document.createElement('div');
+            item.className = 'carreta-equip-group';
+            item.style.borderLeftColor = color.main;
+            item.innerHTML = `
+                <div class="equip-group-header">
+                    <span style="color:${color.main};font-weight:700">📦 ${canal}</span>
+                    <span></span>
+                    <button class="btn-remover-equip" title="Remover ${canal}">&#10005;</button>
+                </div>
+            `;
+            item.querySelector('.btn-remover-equip').addEventListener('click', () => {
+                removeCanalizacaoDaCarreta(canal);
+            });
+            removeWrapper.appendChild(item);
         }
         mergeContainer.appendChild(removeWrapper);
     }
@@ -1200,31 +1208,7 @@ function renderCarretaConteudo(key, carretaIdx) {
     const carreta = carretas[key][carretaIdx];
     carretaConteudo.innerHTML = '';
 
-    // Mostra canalizacoes adicionadas com botao de remover (estilo igual aos equipamentos)
-    const grupo = carregamentoState.grupoAtual;
-    if (grupo.length > 0) {
-        for (const canal of grupo) {
-            const color = getCanalizacaoColor(canal);
-            const canalGroup = document.createElement('div');
-            canalGroup.className = 'carreta-equip-group';
-            canalGroup.style.borderLeftColor = color.main;
-            const husCanal = carreta.hus.filter(h => h.canalizacao === canal);
-            const pcts = husCanal.reduce((s, h) => s + h.pacotes, 0);
-            canalGroup.innerHTML = `
-                <div class="equip-group-header">
-                    <span style="color:${color.main}">📦 ${canal}</span>
-                    <span>${husCanal.length} HUs · ${pcts.toLocaleString('pt-BR')} pcts</span>
-                    <button class="btn-remover-equip" title="Remover ${canal}">&#10005;</button>
-                </div>
-            `;
-            canalGroup.querySelector('.btn-remover-equip').addEventListener('click', () => {
-                removeCanalizacaoDaCarreta(canal);
-            });
-            carretaConteudo.appendChild(canalGroup);
-        }
-    }
-
-    if (carreta.hus.length === 0 && grupo.length === 0) {
+    if (carreta.hus.length === 0) {
         carretaConteudo.innerHTML = '<p class="empty-carreta">Nenhuma HU alocada ainda. Aloque os equipamentos da lista.</p>';
         return;
     }
