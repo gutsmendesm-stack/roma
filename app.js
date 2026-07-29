@@ -1036,12 +1036,11 @@ function renderAddCanalizacao(grupoAtual) {
         for (const canal of grupoAtual) {
             const color = getCanalizacaoColor(canal);
             const btn = document.createElement('button');
-            btn.className = 'btn-merge btn-merge-remove';
+            btn.className = 'btn-merge';
             btn.style.borderColor = color.main;
-            btn.style.color = color.main;
             btn.style.background = color.light;
-            btn.textContent = `✕ ${canal}`;
-            btn.title = `Remover ${canal} desta carreta`;
+            btn.innerHTML = `<span style="color:${color.main};font-weight:700">${canal}</span> <span class="btn-remover-equip" style="display:inline-flex;margin-left:6px;width:18px;height:18px;font-size:0.6rem">✕</span>`;
+            btn.title = `Remover ${canal} deste veículo`;
             btn.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
             removeWrapper.appendChild(btn);
         }
@@ -1168,7 +1167,7 @@ function renderEquipamentosExpedicao(grupo) {
                 <span class="eq-veiculo">${eq.veiculo || 'Sem veículo'}</span>
                 <span class="eq-detail">${husCanal.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts${horaStr}</span>
             </div>
-            <button class="btn-alocar">Alocar na Carreta</button>
+            <button class="btn-alocar">Alocar no Veículo</button>
         `;
         item.querySelector('.btn-alocar').addEventListener('click', () => {
             alocarEquipamentoNaCarreta(eq.veiculo, grupo);
