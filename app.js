@@ -1011,6 +1011,7 @@ function renderCarregamento() {
     renderCarretaConteudo('_current', carretaIdx);
     updateCarregamentoButtons();
     renderAddCanalizacao(grupo);
+    renderRemoverCanalizacao(grupo);
 
     const hasExpedidas = carretas['_current'].some(c => c.expedida);
     btnVerExpedidas.style.display = hasExpedidas ? 'inline-block' : 'none';
@@ -1070,6 +1071,43 @@ function renderAddCanalizacao(grupoAtual) {
         wrapper.appendChild(btn);
     }
     mergeContainer.appendChild(wrapper);
+}
+
+// Remove canalizacao da carreta (devolve HUs dessa canalizacao)
+// Renderiza botoes de remover canalizacao completa embaixo dos dois paineis
+function renderRemoverCanalizacao(grupo) {
+    const esquerda = document.getElementById('removerCanalizacaoEsquerda');
+    const direita = document.getElementById('removerCanalizacaoDireita');
+    if (esquerda) esquerda.innerHTML = '';
+    if (direita) direita.innerHTML = '';
+
+    if (grupo.length === 0) return;
+
+    for (const canal of grupo) {
+        const color = getCanalizacaoColor(canal);
+
+        // Botao no lado esquerdo
+        if (esquerda) {
+            const btnE = document.createElement('button');
+            btnE.className = 'btn-remover-canal';
+            btnE.style.borderColor = color.main;
+            btnE.style.color = color.main;
+            btnE.innerHTML = `✕ Remover ${canal}`;
+            btnE.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
+            esquerda.appendChild(btnE);
+        }
+
+        // Botao no lado direito
+        if (direita) {
+            const btnD = document.createElement('button');
+            btnD.className = 'btn-remover-canal';
+            btnD.style.borderColor = color.main;
+            btnD.style.color = color.main;
+            btnD.innerHTML = `✕ Remover ${canal}`;
+            btnD.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
+            direita.appendChild(btnD);
+        }
+    }
 }
 
 // Remove canalizacao da carreta (devolve HUs dessa canalizacao)
@@ -1238,8 +1276,12 @@ function renderCarretaConteudo(key, carretaIdx) {
             <div class="equip-group-header">
                 <span>${ordem}º ${icon} ${v || 'Sem veículo'}</span>
                 <span>${hus.length} HUs · ${totalPcts.toLocaleString('pt-BR')} pcts</span>
+                <button class="btn-remover-equip" title="Remover">&#10005;</button>
             </div>
         `;
+        group.querySelector('.btn-remover-equip').addEventListener('click', () => {
+            removerEquipamentoDaCarreta(v, carretaIdx);
+        });
         carretaConteudo.appendChild(group);
         ordem++;
     }

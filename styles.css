@@ -1324,3 +1324,33 @@ body.print-etiquetas-navegador { margin: 0 !important; padding: 0 !important; }
     align-items: center;
     gap: 8px;
 }
+
+
+
+/* Area de remover canalizacao embaixo dos paineis */
+.remover-canal-area {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.btn-remover-canal {
+    background: white;
+    border: 2px solid;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-remover-canal:hover {
+    background: #fef2f2;
+    border-color: #dc2626 !important;
+    color: #dc2626 !important;
+    transform: scale(1.05);
+}
