@@ -1086,26 +1086,44 @@ function renderRemoverCanalizacao(grupo) {
     for (const canal of grupo) {
         const color = getCanalizacaoColor(canal);
 
-        // Botao no lado esquerdo
+        // Botao no lado esquerdo - remove a canalizacao do grupo (devolve os nao alocados)
         if (esquerda) {
             const btnE = document.createElement('button');
             btnE.className = 'btn-remover-canal';
             btnE.style.borderColor = color.main;
             btnE.style.color = color.main;
             btnE.innerHTML = `✕ Remover ${canal}`;
-            btnE.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
+            btnE.addEventListener('click', () => {
+                // Remove a canalizacao do grupo (equipamentos aguardando somem)
+                carregamentoState.grupoAtual = carregamentoState.grupoAtual.filter(c => c !== canal);
+                const carreta = getCarretaAtual();
+                carreta.canalizacoes = carreta.canalizacoes.filter(c => c !== canal);
+                renderCarregamento();
+            });
             esquerda.appendChild(btnE);
         }
 
-        // Botao no lado direito
+        // Botao no lado direito - remove HUs dessa canalizacao ja alocadas no veiculo
         if (direita) {
-            const btnD = document.createElement('button');
-            btnD.className = 'btn-remover-canal';
-            btnD.style.borderColor = color.main;
-            btnD.style.color = color.main;
-            btnD.innerHTML = `✕ Remover ${canal}`;
-            btnD.addEventListener('click', () => removeCanalizacaoDaCarreta(canal));
-            direita.appendChild(btnD);
+            const carreta = getCarretaAtual();
+            const temHUsAlocadas = carreta.hus.some(h => h.canalizacao === canal);
+            if (temHUsAlocadas) {
+                const btnD = document.createElement('button');
+                btnD.className = 'btn-remover-canal';
+                btnD.style.borderColor = color.main;
+                btnD.style.color = color.main;
+                btnD.innerHTML = `✕ Remover ${canal}`;
+                btnD.addEventListener('click', () => {
+                    // Remove apenas as HUs dessa canalizacao do veiculo
+                    carreta.hus = carreta.hus.filter(h => h.canalizacao !== canal);
+                    // Recalcula ordemEquipamentos
+                    carreta.ordemEquipamentos = carreta.ordemEquipamentos.filter(v => {
+                        return carreta.hus.some(h => normalizarNomeVeiculo(h.veiculo) === v);
+                    });
+                    renderCarregamento();
+                });
+                direita.appendChild(btnD);
+            }
         }
     }
 }
