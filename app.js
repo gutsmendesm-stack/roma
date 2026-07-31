@@ -413,6 +413,8 @@ function parseRomaneios(pagesText) {
             const veiculoMatch = pageText.match(/Ve[ií]culo:\s*([^\s]+(?:\s+[^\s]+)?(?:\s+[^\s]+)?)/i);
             let veiculo = veiculoMatch ? veiculoMatch[1].trim() : '';
             veiculo = veiculo.replace(/Doca:.*/, '').trim();
+            // Remove traço entre prefixo e numero: "PKC - 00024 G3" -> "PKC 00024 G3"
+            veiculo = veiculo.replace(/^(PAG|PKC)\s*-\s*/i, '$1 ');
             const cleanMatch = veiculo.match(/^[a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*/);
             veiculo = cleanMatch ? cleanMatch[0].trim() : veiculo;
 
