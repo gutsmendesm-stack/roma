@@ -59,6 +59,7 @@ function isLamina(veiculo) {
 let baseSelecionada = '';
 let parsedData = {};
 let parsedMeta = {}; // metadados do romaneio (destino, data)
+let previaConsolidado = null;
 let equipamentos = [];
 let carretas = {};
 let recebimentoState = {
@@ -134,6 +135,11 @@ const carretasExpedidas = document.getElementById('carretasExpedidas');
 btnConfirmarBase.addEventListener('click', confirmarBase);
 
 // Step 1 - Upload
+document.getElementById('btnEntradaPDF').addEventListener('click', () => selecionarEntrada('pdf'));
+document.getElementById('btnEntradaConsolidado').addEventListener('click', () => selecionarEntrada('consolidado'));
+document.getElementById('btnAnalisarConsolidado').addEventListener('click', analisarConsolidado);
+document.getElementById('btnConfirmarConsolidado').addEventListener('click', confirmarConsolidado);
+document.getElementById('textoConsolidado').addEventListener('input', limparPreviaConsolidado);
 btnTrocarBase.addEventListener('click', () => { showStep(0); });
 uploadArea.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileSelect);
@@ -210,6 +216,7 @@ function confirmarBase() {
         return;
     }
     baseSelecionada = base;
+    limparPreviaConsolidado();
     baseInfoLabel.textContent = `Base: ${base}`;
     showStep(1);
 }
@@ -217,6 +224,104 @@ function confirmarBase() {
 // ============================================================
 // STEP 1 - UPLOAD E PROCESSAMENTO DO PDF
 // ============================================================
+function selecionarEntrada(tipo) {
+    const pdf = tipo === 'pdf';
+    document.getElementById('entradaPDF').hidden = !pdf;
+    document.getElementById('entradaConsolidado').hidden = pdf;
+    for (const [id, ativo] of [['btnEntradaPDF', pdf], ['btnEntradaConsolidado', !pdf]]) {
+        const botao = document.getElementById(id);
+        botao.setAttribute('aria-pressed', String(ativo));
+        botao.className = `btn ${ativo ? 'btn-primary' : 'btn-secondary'}`;
+    }
+}
+
+function limparPreviaConsolidado() {
+    previaConsolidado = null;
+    document.getElementById('previaConsolidado').replaceChildren();
+    document.getElementById('btnConfirmarConsolidado').disabled = true;
+}
+
+function analisarConsolidado() {
+    limparPreviaConsolidado();
+    const resultado = Consolidado.parse(document.getElementById('textoConsolidado').value);
+    previaConsolidado = resultado;
+    const container = document.getElementById('previaConsolidado');
+    const numero = n => n.toLocaleString('pt-BR');
+    const adicionarTexto = (tag, texto, classe) => {
+        const elemento = document.createElement(tag);
+        elemento.textContent = texto;
+        if (classe) elemento.className = classe;
+        container.appendChild(elemento);
+        return elemento;
+    };
+    adicionarTexto('h3', 'Prévia da entrada');
+    adicionarTexto('p', `Base selecionada: ${baseSelecionada}. Confira se a seleção da planilha corresponde a esta base e ao período desejado.`);
+    adicionarTexto('p', `${numero(resultado.linhas)} linhas · ${numero(resultado.masters)} MASTERs · ${numero(resultado.avulsas)} HUs avulsas · ${numero(resultado.entradas.length)} QR codes · ${numero(resultado.totalPacotes)} pacotes`, 'consolidado-resumo');
+    if (resultado.repeticoes) adicionarTexto('p', `${numero(resultado.repeticoes)} ocorrências repetidas de HU: as quantidades foram somadas.`);
+    for (const aviso of resultado.avisos) adicionarTexto('p', aviso, 'consolidado-aviso');
+    if (resultado.erros.length) {
+        adicionarTexto('p', 'Corrija os problemas abaixo e clique em Conferir dados novamente. Nenhuma entrada foi confirmada.', 'consolidado-erro');
+        const lista = adicionarTexto('ul', '', 'consolidado-erro');
+        for (const erro of resultado.erros) {
+            const item = document.createElement('li');
+            item.textContent = erro;
+            lista.appendChild(item);
+        }
+    }
+    const criarTabela = (titulos, linhas) => {
+        const wrapper = adicionarTexto('div', '', 'consolidado-table-wrapper');
+        const tabela = document.createElement('table');
+        tabela.className = 'consolidado-table';
+        const head = document.createElement('thead');
+        const tr = document.createElement('tr');
+        for (const titulo of titulos) {
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.textContent = titulo;
+            tr.appendChild(th);
+        }
+        head.appendChild(tr);
+        tabela.appendChild(head);
+        const body = document.createElement('tbody');
+        for (const valores of linhas) {
+            const linha = document.createElement('tr');
+            for (const valor of valores) {
+                const td = document.createElement('td');
+                td.textContent = valor;
+                linha.appendChild(td);
+            }
+            body.appendChild(linha);
+        }
+        tabela.appendChild(body);
+        wrapper.appendChild(tabela);
+    };
+    if (resultado.entradas.length) {
+        criarTabela(['Canalização', 'QR codes', 'Pacotes'], Object.keys(resultado.dados).sort().map(canal => [
+            canal, numero(resultado.dados[canal].length), numero(resultado.dados[canal].reduce((s, h) => s + h.pacotes, 0))
+        ]));
+        if (resultado.conferencia.length) {
+            adicionarTexto('h3', 'Conferência com o consolidado');
+            criarTabela(['Canalização', 'Calculado', 'Informado', 'Resultado'], resultado.conferencia.map(t => [
+                t.canal, numero(t.calculado), numero(t.informado), t.confere ? 'Confere' : 'Divergente'
+            ]));
+        }
+        adicionarTexto('h3', 'Códigos que serão usados na bipagem');
+        criarTabela(['HU / MASTER', 'Tipo', 'Canalização', 'Equipamento', 'Pacotes'], resultado.entradas.map(e => [
+            e.hu, e.tipoHu === 'master' ? `MASTER (${e.filhas.length} filhas)` : 'HU avulsa', e.canalizacao, e.veiculo, numero(e.pacotes)
+        ]));
+    }
+    document.getElementById('btnConfirmarConsolidado').disabled = resultado.erros.length > 0;
+}
+
+function confirmarConsolidado() {
+    if (!previaConsolidado || previaConsolidado.erros.length) return;
+    parsedData = previaConsolidado.dados;
+    parsedMeta = { origemEntrada: 'consolidado' };
+    equipamentos = buildEquipamentos(parsedData);
+    operacaoIniciada = true;
+    showHub();
+}
+
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) processFile(file);
@@ -927,6 +1032,21 @@ function createQRCard(item, color) {
     canalizacaoLabel.style.background = color.main;
     canalizacaoLabel.textContent = item.canalizacao;
     card.appendChild(canalizacaoLabel);
+
+    // As filhas ficam disponíveis para consulta, sem QR extra ou duplicação de pacotes.
+    if (item.tipoHu === 'master') {
+        const detalhes = document.createElement('details');
+        detalhes.className = 'hu-filhas';
+        const resumo = document.createElement('summary');
+        resumo.textContent = `MASTER · ${item.filhas.length} HUs filhas`;
+        detalhes.appendChild(resumo);
+        for (const filha of item.filhas) {
+            const linha = document.createElement('div');
+            linha.textContent = `${filha.hu} · ${filha.pacotes.toLocaleString('pt-BR')} pacotes`;
+            detalhes.appendChild(linha);
+        }
+        card.appendChild(detalhes);
+    }
 
     return card;
 }
@@ -1771,6 +1891,9 @@ function resetAll() {
     colorIndex = 0;
     canalizacaoColors = {};
     operacaoIniciada = false;
+    limparPreviaConsolidado();
+    document.getElementById('textoConsolidado').value = '';
+    selecionarEntrada('pdf');
 
     hubSummary.innerHTML = '';
     document.getElementById('allQrCodesContainer').innerHTML = '';

@@ -4,6 +4,32 @@
     box-sizing: border-box;
 }
 
+[hidden] { display: none !important; }
+
+.entrada-opcoes { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.consolidado-hint { color: #555; line-height: 1.5; margin: 12px 0; }
+#entradaConsolidado label { display: block; font-weight: 600; margin: 18px 0 8px; }
+#textoConsolidado { width: 100%; padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font: 0.9rem monospace; resize: vertical; }
+#textoConsolidado:focus { outline: 2px solid #1a56db; outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+#previaConsolidado { margin-top: 24px; }
+#previaConsolidado:empty { display: none; }
+#previaConsolidado h3 { margin: 20px 0 10px; }
+#previaConsolidado p { margin: 10px 0; line-height: 1.5; }
+.consolidado-resumo { font-weight: 700; }
+.consolidado-aviso { color: #854d0e; background: #fffbeb; padding: 12px; border-radius: 6px; }
+.consolidado-erro { color: #b91c1c; }
+ul.consolidado-erro { padding-left: 24px; line-height: 1.7; }
+.consolidado-table-wrapper { overflow-x: auto; margin: 12px 0; }
+.consolidado-table { width: 100%; border-collapse: collapse; background: white; }
+.consolidado-table th, .consolidado-table td { text-align: left; border: 1px solid #ddd; padding: 10px; }
+.consolidado-table th { background: #eff6ff; }
+.consolidado-table td:first-child { white-space: nowrap; }
+.hu-filhas { margin-top: 10px; font-size: 0.75rem; overflow-wrap: anywhere; }
+.hu-filhas summary { cursor: pointer; font-weight: 700; }
+.hu-filhas div { margin-top: 5px; }
+@media print { .hu-filhas { display: none !important; } }
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f5f7fa;
