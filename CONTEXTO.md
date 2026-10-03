@@ -9,6 +9,21 @@ Ferramenta web para operação de carga aérea (Mercado Livre). Lê PDFs de roma
 - Arquivos: `index.html`, `app.js`, `styles.css`
 
 ## Fluxo da aplicação
+Além do PDF, a versão principal aceita **Colar consolidado** após selecionar a base.
+O operador filtra base/período na planilha, copia cabeçalhos e linhas e confere a prévia antes de confirmar.
+- Colunas obrigatórias: `HU`, `DESTINO`, `LAMINA`, `QUANTIDADE`; `MASTER` é opcional.
+- Cada MASTER vira um único código de bipagem, com soma das quantidades das filhas.
+- HUs sem MASTER entram individualmente; ocorrências repetidas somam suas quantidades.
+- As filhas e metadados da planilha ficam associados à entrada para consulta.
+- Conflitos de MASTER/canalização/equipamento, linhas inválidas e totais divergentes bloqueiam a confirmação.
+- O quadro lateral `TOTAL` + quantidade é comparado quando incluído; se ausente/parcial, a prévia avisa.
+- Horários da planilha são referências e não registram o recebimento local automaticamente.
+- Não há conversão de IDs para números, nem importação de valores em notação científica.
+- A operação continua no mesmo painel de recebimento, QR codes e expedição.
+
+`consolidado.js` concentra o parser. Testes: `node --test tests/consolidado.test.cjs`.
+A versão `roma-standalone.html` não inclui esta alternativa de entrada.
+
 1. **Upload PDF** → extrai texto de todas as páginas
 2. **Resumo + QR Codes** → mostra totais por canalização, gera QR codes de todas as HUs (para bipagem inicial no aparelho)
 3. **Carregamento** → carretas começam VAZIAS, usuário adiciona canalizações via botões "+", marca equipamentos conforme chegam no terminal

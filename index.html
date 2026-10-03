@@ -24,7 +24,7 @@
     <div class="container">
         <header>
             <h1>Leitor de Romaneios</h1>
-            <p class="subtitle">Upload do PDF para extrair HUs e organizar por carretas</p>
+            <p class="subtitle">Importe um PDF ou cole o consolidado para organizar HUs e carretas</p>
         </header>
 
         <!-- Step 0: Selecao de Base -->
@@ -60,6 +60,12 @@
                 <button class="btn-link" id="btnTrocarBase">Trocar base</button>
             </div>
 
+            <div class="entrada-opcoes" aria-label="Forma de entrada">
+                <button class="btn btn-primary" id="btnEntradaPDF" aria-pressed="true">📄 Importar PDF</button>
+                <button class="btn btn-secondary" id="btnEntradaConsolidado" aria-pressed="false">📋 Colar consolidado</button>
+            </div>
+
+            <div id="entradaPDF">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📄</div>
                 <p class="upload-text">Arraste o PDF aqui ou clique para selecionar</p>
@@ -75,6 +81,23 @@
             <div class="loading" id="loading" style="display:none">
                 <div class="spinner"></div>
                 <span>Processando PDF...</span>
+            </div>
+            </div>
+
+            <div id="entradaConsolidado" hidden>
+                <h2>Entrada pelo Consolidado</h2>
+                <p class="step-hint">Filtre a planilha pela sua base e pelo período desejado. Copie os cabeçalhos e as linhas e cole abaixo.</p>
+                <p class="consolidado-hint">Colunas necessárias: HU, DESTINO, LAMINA e QUANTIDADE. Inclua MASTER para agrupar as HUs filhas. Você pode copiar também o quadro de totais à direita.</p>
+                <p class="consolidado-hint">Os horários da planilha ficam como referência; o recebimento nesta base será registrado na tela de Recebimento de Equipamentos.</p>
+                <label for="textoConsolidado">Dados copiados da planilha</label>
+                <textarea id="textoConsolidado" rows="10" spellcheck="false" placeholder="Cole aqui as células, incluindo os cabeçalhos"></textarea>
+                <div class="step-actions">
+                    <button class="btn btn-primary" id="btnAnalisarConsolidado">Conferir dados</button>
+                </div>
+                <div id="previaConsolidado" aria-live="polite"></div>
+                <div class="step-actions">
+                    <button class="btn btn-success" id="btnConfirmarConsolidado" disabled>Confirmar entrada e iniciar operação</button>
+                </div>
             </div>
         </section>
 
@@ -209,6 +232,7 @@
         </section>
     </div>
 
+    <script src="consolidado.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
