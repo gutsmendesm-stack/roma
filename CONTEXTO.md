@@ -8,6 +8,13 @@ Ferramenta web para operação de carga aérea (Mercado Livre). Lê PDFs de roma
 - Hospedagem: GitHub Pages ou Cloudflare Pages
 - Arquivos: `index.html`, `app.js`, `styles.css`
 
+## Publicação no Cloudflare Workers
+- `wrangler.jsonc` configura o Worker `roma` para servir arquivos estáticos da raiz, sem compilação.
+- `.assetsignore` permite somente `index.html`, `styles.css`, `app.js` e `consolidado.js` na publicação.
+- No painel do Worker: raiz do projeto = raiz do repositório; comando de build vazio; deploy de produção = `npx wrangler deploy`.
+- `npx wrangler versions upload` envia uma versão sem ativá-la em produção; é diferente do deploy.
+- A correção e a entrada por consolidado precisam estar na branch que o Cloudflare está construindo.
+
 ## Fluxo da aplicação
 Além do PDF, a versão principal aceita **Colar consolidado** após selecionar a base.
 O operador filtra base/período na planilha, copia cabeçalhos e linhas e confere a prévia antes de confirmar.

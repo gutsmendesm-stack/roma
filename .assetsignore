@@ -1,0 +1,6 @@
+# Publica apenas os arquivos da aplicação principal.
+*
+!/index.html
+!/styles.css
+!/app.js
+!/consolidado.js
