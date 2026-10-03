@@ -17,6 +17,7 @@ O operador filtra base/período na planilha, copia cabeçalhos e linhas e confer
 - As filhas e metadados da planilha ficam associados à entrada para consulta.
 - Conflitos de MASTER/canalização/equipamento, linhas inválidas e totais divergentes bloqueiam a confirmação.
 - O quadro lateral `TOTAL` + quantidade é comparado quando incluído; se ausente/parcial, a prévia avisa.
+- Resumos de insumos/malha acima do cabeçalho `HU` são ignorados com aviso; não entram na soma dos pacotes.
 - Horários da planilha são referências e não registram o recebimento local automaticamente.
 - Não há conversão de IDs para números, nem importação de valores em notação científica.
 - A operação continua no mesmo painel de recebimento, QR codes e expedição.
@@ -140,4 +141,3 @@ Justificativa da ordem:
 - Navegação reestruturada é pré-requisito pro recebimento funcionar
 - Recebimento precisa existir antes de ajustar a expedição
 - Visualização por veículo e etiquetadora são independentes, ficam por último
-

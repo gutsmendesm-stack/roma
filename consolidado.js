@@ -30,13 +30,20 @@
         const linhas = [];
         const totaisInformados = new Map();
         const tabela = texto.replace(/\r\n?/g, '\n').split('\n');
-        const primeira = tabela.findIndex(l => l.trim());
+        const primeiraNaoVazia = tabela.findIndex(l => l.trim());
+        // Algumas bases copiam também o quadro de insumos/malha acima da tabela.
+        const cabecalhoHu = tabela.findIndex(l => {
+            const colunas = l.split('\t').map(cabecalho);
+            return colunas.includes('HU') && colunas.includes('DESTINO');
+        });
+        const primeira = cabecalhoHu >= 0 ? cabecalhoHu : primeiraNaoVazia;
         const vazio = { dados: {}, entradas: [], erros, avisos, conferencia: [],
             totalPacotes: 0, linhas: 0, filhasUnicas: 0, repeticoes: 0, masters: 0, avulsas: 0 };
         if (primeira < 0) {
             erros.push('Cole os cabeçalhos e as linhas do consolidado.');
             return vazio;
         }
+        if (primeira > primeiraNaoVazia) avisos.push('O resumo acima do cabeçalho HU foi ignorado. A entrada usa as linhas da tabela de HUs.');
         const headers = tabela[primeira].split('\t').map(cabecalho);
         const obrigatorias = ['HU', 'DESTINO', 'LAMINA', 'QUANTIDADE'];
         for (const nome of [...obrigatorias, 'MASTER']) {

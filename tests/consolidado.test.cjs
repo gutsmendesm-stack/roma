@@ -154,4 +154,33 @@ test('referência de 68 linhas confere 13 MASTERs, 3 avulsas e 7.138 pacotes', (
     assert.equal(new Set(r.entradas.map(e => e.veiculo)).size, 9);
 });
 
+test('aceita resumo de insumos e malha acima do cabeçalho sem somá-lo aos pacotes', () => {
+    const r = parse(['Insumos embarcados\t\tInsumos offload\t\tMalha',
+        'Manga pallet\t\tManga pallet\t\tQtd Lâmina\t12',
+        'Manga Air\t4\tManga Air\t\tQtd pacotes\t20213',
+        'Palete/Gaylord\t0\tPalete/Gaylord\t\tQtd Porão/Carretinha\t5',
+        '', header, row(filha, 10, master, 'SAL1_A', 'PAG-00325-G3', 'TOTAL', 15),
+        row(outraFilha, 5, master, 'SAL1_A', 'PAG 325 G3')].join('\r\n'));
+    assert.deepEqual(r.erros, []);
+    assert.equal(r.totalPacotes, 15);
+    assert.equal(r.linhas, 2);
+    assert.equal(r.masters, 1);
+    assert.ok(r.avisos.some(a => a.includes('resumo acima')));
+});
+
+test('colagem com resumo continua exigindo todas as colunas obrigatórias', () => {
+    const r = parse('Insumos\tMalha\nHU\tDESTINO\tQUANTIDADE\n' + filha + '\tSAL1_A\t10');
+    assert.ok(r.erros.some(e => e.includes('LAMINA')));
+});
+
+test('aceita nomes operacionais livres e MASTERs mais curtas sem perder quantidades', () => {
+    const r = parse([header, row(filha, 184, '', 'SAL1_B', 'C-5'),
+        row(outraFilha, 12, '', 'SAL1_B', 'ajuste'),
+        row('1000000000000003', 242, '20000000000001', 'SSE1_A', 'PKC-00005')].join('\n'));
+    assert.deepEqual(r.erros, []);
+    assert.equal(r.totalPacotes, 438);
+    assert.deepEqual(r.entradas.map(e => e.veiculo), ['C 5', 'AJUSTE', 'PKC 5']);
+    assert.equal(r.entradas[2].hu, '20000000000001');
+});
+
 module.exports = { referencia };
